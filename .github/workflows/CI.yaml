@@ -4,11 +4,11 @@ on:
   push:
     branches:
       - "master"
-      - [**]
+      - "project01-bh"
   pull_request:
     branches:
       - "master"
-      - [**]
+      - "project01-bh"
   # schedule:
   #   # Nightly Tests
   #   - cron: "0 0 * * *"
