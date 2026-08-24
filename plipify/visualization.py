@@ -15,9 +15,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import MDAnalysis as mda
 import plotly.graph_objects as go
-import pymol
 import seaborn as sns
-from pymol import cmd, util
 
 from plipify.core import Structure
 
@@ -329,7 +327,7 @@ def fingerprint_nglview(fingerprint_df, structure, fp_index_to_residue_id=None):
     )
 
     # Patch tooltips
-    # Adapted from https://github.com/umesh-timalsina/mbuild/blob/master/mbuild/utils/jsutils.py
+    # Adapted from https://github.com/umesh-timalsina/mbuild/blob/master/mbuild/self._utils/jsself._utils.py
 
     tooltip_js = (
         f"""
@@ -577,10 +575,14 @@ class PymolVisualizer(object):
     """
 
     def __init__(self, pdb: str, ligand_interactions: bool = True, verbose: bool = True):
-
+        import pymol
+        from pymol import cmd, util
+        
         self._pdb = pdb
         self._ligand_interactions = ligand_interactions
         self._verbose = verbose
+        self._self._cmd = self._cmd
+        self._self._util = self._util
 
         # Launch pymol session
         if self._verbose:
@@ -592,21 +594,21 @@ class PymolVisualizer(object):
         if self._verbose:
             print("Loading supplied PDB file...")
         if os.path.exists(self._pdb):
-            cmd.load(self._pdb)
+            self._cmd.load(self._pdb)
         else:
             raise FileNotFoundError(f"{self._pdb} not found")
 
         # Rename objects
         # NOTE not sure this step is needed
         name = os.path.splitext(os.path.basename(self._pdb))[0]
-        cmd.set_name(name, "system")
+        self._cmd.set_name(name, "system")
 
         # Remove solvent
         # TODO check for more names
-        cmd.remove("resn HOH")
-        cmd.remove("resn SOL")
-        cmd.remove("resn NA")
-        cmd.remove("resn CL")
+        self._cmd.remove("resn HOH")
+        self._cmd.remove("resn SOL")
+        self._cmd.remove("resn NA")
+        self._cmd.remove("resn CL")
 
     def set_style(
         self,
@@ -646,16 +648,16 @@ class PymolVisualizer(object):
         # Add filter (ambient) and other misc settings
         # TODO add other options
 
-        cmd.set("ambient", ambient)
-        cmd.set("ambient_occlusion_mode", ambient_occlusion_mode)
-        cmd.set("ambient_occlusion_scale", ambient_occlusion_scale)
-        cmd.bg_colour(background_col)
-        cmd.set("antialias", antialias)
-        cmd.set("ortho", ortho)
-        cmd.set("ray_trace_mode", ray_trace_mode)
+        self._cmd.set("ambient", ambient)
+        self._cmd.set("ambient_occlusion_mode", ambient_occlusion_mode)
+        self._cmd.set("ambient_occlusion_scale", ambient_occlusion_scale)
+        self._cmd.bg_colour(background_col)
+        self._cmd.set("antialias", antialias)
+        self._cmd.set("ortho", ortho)
+        self._cmd.set("ray_trace_mode", ray_trace_mode)
 
         # Set the beta sheet style
-        cmd.set("cartoon_flat_sheets", flat_sheets)
+        self._cmd.set("cartoon_flat_sheets", flat_sheets)
 
     def create_image(
         self,
@@ -726,35 +728,35 @@ class PymolVisualizer(object):
         self._viewport_y = viewport_y
 
         # Set colours
-        cmd.set_color("cborange", [0.8706, 0.5608, 0.0196])
-        cmd.set_color("cbpurple", [0.66, 0.35, 0.63])
-        cmd.set_color("cblight_blue", [0.52, 0.75, 0.98])
-        cmd.set_color("cbgreen", [0.0078, 0.6196, 0.4510])
-        cmd.set_color("cbblue", [0.0039, 0.4510, 0.6980])
-        cmd.set_color("cbred", [0.8353, 0.3686, 0])
-        cmd.set_color("cbbrown", [0.7921, 0.5686, 0.3804])
-        cmd.set_color("cbgrey", [0.5804, 0.5804, 0.5804])
-        cmd.set_color("cbgray", [0.5804, 0.5804, 0.5804])
+        self._cmd.set_color("cborange", [0.8706, 0.5608, 0.0196])
+        self._cmd.set_color("cbpurple", [0.66, 0.35, 0.63])
+        self._cmd.set_color("cblight_blue", [0.52, 0.75, 0.98])
+        self._cmd.set_color("cbgreen", [0.0078, 0.6196, 0.4510])
+        self._cmd.set_color("cbblue", [0.0039, 0.4510, 0.6980])
+        self._cmd.set_color("cbred", [0.8353, 0.3686, 0])
+        self._cmd.set_color("cbbrown", [0.7921, 0.5686, 0.3804])
+        self._cmd.set_color("cbgrey", [0.5804, 0.5804, 0.5804])
+        self._cmd.set_color("cbgray", [0.5804, 0.5804, 0.5804])
 
         # Set colour dictionary
         c_dict = {
-            "yellow": cmd.util.cbay,
-            "green": cmd.util.cbag,
-            "cyan": cmd.util.cbac,
-            "light magenta": cmd.util.cbam,
-            "salmon": cmd.util.cbam,
-            "white": cmd.util.cbaw,
-            "slate": cmd.util.cbab,
-            "orange": cmd.util.cbao,
-            "purple": cmd.util.cbap,
-            "pink": cmd.util.cbak,
+            "yellow": self._cmd.self._util.cbay,
+            "green": self._cmd.self._util.cbag,
+            "cyan": self._cmd.self._util.cbac,
+            "light magenta": self._cmd.self._util.cbam,
+            "salmon": self._cmd.self._util.cbam,
+            "white": self._cmd.self._util.cbaw,
+            "slate": self._cmd.self._util.cbab,
+            "orange": self._cmd.self._util.cbao,
+            "purple": self._cmd.self._util.cbap,
+            "pink": self._cmd.self._util.cbak,
         }
 
         # Select protein residues (backbone and sidechain)
-        cmd.select("prot", "bb. or sc.")
+        self._cmd.select("prot", "bb. or sc.")
 
         if show_ligand:
-            cmd.select("ligand", f"resn {ligand_resname}")
+            self._cmd.select("ligand", f"resn {ligand_resname}")
 
         # Sort out protein and ligand colours
         if show_ligand:
@@ -762,75 +764,75 @@ class PymolVisualizer(object):
         c_dict[protein_col]("prot")
 
         # Hide everything
-        cmd.hide("all")
+        self._cmd.hide("all")
         # Ensure secondary structure is show correctly
-        cmd.dss("prot")
+        self._cmd.dss("prot")
 
         # Colour protein residues based on bfactor value, if specified
         if self._ligand_interactions:
             if self._verbose:
                 print("Highlighting ligand interaction sites...")
-            cmd.spectrum("b", spectrum_col, "prot")
+            self._cmd.spectrum("b", spectrum_col, "prot")
             if show_backbone:
-                cmd.show(highlight_style, "prot and not hydrogen and b > 0")
+                self._cmd.show(highlight_style, "prot and not hydrogen and b > 0")
             else:
-                cmd.select(
+                self._cmd.select(
                     "hotspots",
                     "not resn PRO and prot and not name N and not name C and not name O and not hydrogen and b > 0",
                 )
-                cmd.select(
+                self._cmd.select(
                     "hotspots_pro",
                     "resn PRO and not name C and not name O and not hydrogen and b > 0",
                 )
-                cmd.show(
+                self._cmd.show(
                     highlight_style,
                     "hotspots",
                 )
                 # Handle Proline
-                cmd.show(
+                self._cmd.show(
                     highlight_style,
                     "hotspots_pro",
                 )
 
         # Show the whole protein
-        cmd.show(protein_style, "prot and not hydrogen")
+        self._cmd.show(protein_style, "prot and not hydrogen")
         if surface:
-            cmd.show("surface", "prot and not hydrogen")
-        cmd.enable("prot")
+            self._cmd.show("surface", "prot and not hydrogen")
+        self._cmd.enable("prot")
 
         # Show the ligand, if specified
         if show_ligand:
-            cmd.enable("ligand")
-            cmd.show(ligand_style, "ligand and not hydrogen")
+            self._cmd.enable("ligand")
+            self._cmd.show(ligand_style, "ligand and not hydrogen")
             if cnc_ligand:
-                util.cnc("ligand")
+                self._util.cnc("ligand")
 
         # Colour only Carbon atoms, if specified
         if cnc_protein:
-            util.cnc("prot")
+            self._util.cnc("prot")
 
         # Add a protein surface, if specified
         if surface:
-            cmd.set("surface_mode", surface_mode)
-            cmd.set("transparency", transparency)
-            cmd.set("surface_color", surface_col)
+            self._cmd.set("surface_mode", surface_mode)
+            self._cmd.set("transparency", transparency)
+            self._cmd.set("surface_color", surface_col)
 
-            cmd.set("transparency", 0.75, "b>0")
+            self._cmd.set("transparency", 0.75, "b>0")
 
         # Set the viewport and view
         if self._verbose:
             print("Setting PyMol view...")
-        cmd.viewport(self._viewport_x, self._viewport_y)
+        self._cmd.viewport(self._viewport_x, self._viewport_y)
 
         if view == "ligand":
             if self._verbose:
                 print("Focussing view on ligand and binding site")
-            cmd.center("ligand or hotspots or hotspots_pro")
-            cmd.zoom("ligand or hotspots or hotspots_pro", 5)
+            self._cmd.center("ligand or hotspots or hotspots_pro")
+            self._cmd.zoom("ligand or hotspots or hotspots_pro", 5)
 
         else:
             if len(view.split()) == 18:
-                cmd.set_view(f"{view}")
+                self._cmd.set_view(f"{view}")
                 if self._verbose:
                     print("Focussing view on user-supplied coordinates")
             else:
@@ -859,9 +861,9 @@ class PymolVisualizer(object):
         # Create image
         if self._verbose:
             print("Rendering PyMol image...")
-        cmd.set("ray_transparency_contrast", 3.0)
-        cmd.ray(self._viewport_x, self._viewport_y)
+        self._cmd.set("ray_transparency_contrast", 3.0)
+        self._cmd.ray(self._viewport_x, self._viewport_y)
         filename = str(d / f"{name}.png")
-        cmd.png(filename, dpi=dpi)
+        self._cmd.png(filename, dpi=dpi)
         if self._verbose:
             print(f"Image created! Saving to {filename}")
