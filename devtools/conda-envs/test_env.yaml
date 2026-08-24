@@ -5,7 +5,7 @@ channels:
   - schrodinger
 dependencies:
   # Base depends
-  - python >=3.9,<3.12
+  - python >=3.9
   - pip
   - pandas
   - tqdm
