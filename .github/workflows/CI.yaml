@@ -28,6 +28,9 @@ jobs:
       - name: Checkout the code
         uses: actions/checkout@v1
 
+      - name: Install YAML parser
+        run: pip install PyYAML
+
       - name: Additional info about the build
         shell: bash
         run: |
