@@ -1,0 +1,43 @@
+[workspace]
+channels = ["conda-forge", "bioconda"]
+name = "plipify"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = "3.11.*"
+
+[environments.plipify]
+no-default-feature = true
+channels = ["conda-forge", "bioconda"]
+
+[environments.plipify.dependencies]
+python = "3.11.*"
+pip = "*"
+pandas = "*"
+tqdm = "*"
+numpy = "*"
+jupyterlab = ">=3"
+nglview = "*"
+plip = "*"
+rdkit = "*"
+matplotlib-base = "*"
+seaborn = "*"
+plotly = "*"
+ipywidgets = "*"
+xlrd = "*"
+ambertools = "*"
+mdanalysis = "*"
+bravado = "*"
+biopandas = "*"
+biotite = "*"
+pymol-open-source = "*"
+muscle = "*"
+pytest = "*"
+pytest-cov = "*"
+black = "*"
+
+[environments.plipify.pypi-dependencies]
+opencadd = { url = "https://github.com/volkamerlab/opencadd/archive/master.tar.gz" }

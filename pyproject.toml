@@ -1,0 +1,30 @@
+[project]
+name = "plipify"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "biopython>=1.88",
+    "matplotlib>=3.11.1",
+    "mdanalysis>=2.10.0",
+    "nglview>=4.0.1",
+    "pandas>=3.0.5",
+    "plip>=3.0.1",
+    "plotly>=6.9.0",
+    "rdkit>=2026.3.5",
+    "requests>=2.34.2",
+    "tqdm>=4.70.0",
+]
+
+[project.scripts]
+plipify = "plipify:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+]

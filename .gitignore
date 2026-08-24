@@ -106,4 +106,6 @@ ENV/
 .vscode/
 
 projects/*/data
-projects/*/output
+projects/*/output# pixi environments
+.pixi/*
+!.pixi/config.toml
