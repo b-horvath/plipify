@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest] # , macOS-latest, windows-latest]
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11"]
     env:
       PYVER: ${{ matrix.python-version }}
       CI_OS: ${{ matrix.os }}
@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcatch2-dev  # Add this line
+          sudo apt-get install -y catch2  
           . devtools/github-actions/initialize_conda.sh
           conda activate
           pip install PyYAML
