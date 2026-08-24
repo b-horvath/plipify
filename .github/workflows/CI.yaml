@@ -49,6 +49,8 @@ jobs:
       - name: Create environment for package
         shell: bash
         run: |
+          sudo apt-get update
+          sudo apt-get install -y libcatch2-dev  # Add this line
           . devtools/github-actions/initialize_conda.sh
           conda activate
           pip install PyYAML
