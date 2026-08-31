@@ -6,6 +6,7 @@ Factories that take a Structure or multiple structures and produce
 an interaction fingerprint.
 
 """
+
 import subprocess
 from collections import defaultdict, Counter
 from tempfile import TemporaryDirectory
@@ -244,11 +245,12 @@ class InteractionFingerprint:
             logfile = str(tmp / "log.txt")
             write_alignment(unaligned, infile, "fasta")
             cli = f"muscle -super5 {infile} -output {outfile} -log {logfile}"
-            subprocess.call(cmd,
-                            shell=True,
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.STDOUT
-                            )
+            subprocess.call(
+                cli,
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+            )
             aligned = read_alignment(outfile, "fasta")
 
         offset = unaligned.get_alignment_length() - aligned.get_alignment_length()

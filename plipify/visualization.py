@@ -327,7 +327,7 @@ def fingerprint_nglview(fingerprint_df, structure, fp_index_to_residue_id=None):
     )
 
     # Patch tooltips
-    # Adapted from https://github.com/umesh-timalsina/mbuild/blob/master/mbuild/self._utils/jsself._utils.py
+    # Adapted from https://github.com/umesh-timalsina/mbuild/blob/master/mbuild/utils/jsutils.py
 
     tooltip_js = (
         f"""
@@ -577,12 +577,12 @@ class PymolVisualizer(object):
     def __init__(self, pdb: str, ligand_interactions: bool = True, verbose: bool = True):
         import pymol
         from pymol import cmd, util
-        
+
         self._pdb = pdb
         self._ligand_interactions = ligand_interactions
         self._verbose = verbose
-        self._self._cmd = self._cmd
-        self._self._util = self._util
+        self._cmd = cmd
+        self._util = util
 
         # Launch pymol session
         if self._verbose:
@@ -621,7 +621,6 @@ class PymolVisualizer(object):
         ray_trace_mode: int = 0,
         flat_sheets: int = 1,
     ):
-
         """
         Set style using PyMol parameters
 
@@ -680,7 +679,6 @@ class PymolVisualizer(object):
         viewport_x: int = 720,
         viewport_y: int = 720,
     ):
-
         """
         Create a PyMol image
 
@@ -740,16 +738,16 @@ class PymolVisualizer(object):
 
         # Set colour dictionary
         c_dict = {
-            "yellow": self._cmd.self._util.cbay,
-            "green": self._cmd.self._util.cbag,
-            "cyan": self._cmd.self._util.cbac,
-            "light magenta": self._cmd.self._util.cbam,
-            "salmon": self._cmd.self._util.cbam,
-            "white": self._cmd.self._util.cbaw,
-            "slate": self._cmd.self._util.cbab,
-            "orange": self._cmd.self._util.cbao,
-            "purple": self._cmd.self._util.cbap,
-            "pink": self._cmd.self._util.cbak,
+            "yellow": self._util.cbay,
+            "green": self._util.cbag,
+            "cyan": self._util.cbac,
+            "light magenta": self._util.cbam,
+            "salmon": self._util.cbam,
+            "white": self._util.cbaw,
+            "slate": self._util.cbab,
+            "orange": self._util.cbao,
+            "purple": self._util.cbap,
+            "pink": self._util.cbak,
         }
 
         # Select protein residues (backbone and sidechain)
@@ -840,7 +838,6 @@ class PymolVisualizer(object):
                     print("Couldn't parse supplied view!")
 
     def render(self, name, save_path="./", dpi=300):
-
         """
         Render PyMol image
 

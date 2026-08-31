@@ -33,10 +33,10 @@ For more details, please see the [fragalysis.ipynb](https://github.com/volkamerl
 
 Coming soon ...
 
-### Installation using pixi
+### Installation using uv
 
 #### Prerequisite
-[pixi](https://pixi.sh/) and Git should be pre-installed. See [pixi's installation guide](https://pixi.sh/latest/#installation) and [Git's website](https://git-scm.com/downloads) for download.
+[uv](https://docs.astral.sh/uv/) and Git should be pre-installed. See [uv's installation guide](https://docs.astral.sh/uv/getting-started/installation/) and [Git's website](https://git-scm.com/downloads) for download.
 
 #### How to
 
@@ -52,29 +52,25 @@ git clone https://github.com/volkamerlab/plipify.git
 cd plipify
 ```
 
-3. Create the environment (pixi resolves it from `pixi.toml` / `pixi.lock`):
+3. Create the environment (uv resolves it from `pyproject.toml` / `uv.lock` into `.venv/`):
 
 ```console
-pixi install -e plipify
+uv sync
 ```
 
 4. Activate the environment:
 
 ```console
-pixi shell -e plipify
-```
-
-5. Install plipify package:
-
-```console
-pip install -e . --no-deps
+source .venv/bin/activate
 ```
 
 Alternatively, run a single command inside the environment without activating it, e.g.:
 
 ```console
-pixi run -e plipify jupyter lab
+uv run jupyter lab
 ```
+
+To include the optional tooling groups (`test`, `lint`, `dev`), sync with e.g. `uv sync --all-groups`.
 
 ### Contributors
 
@@ -90,7 +86,7 @@ pixi run -e plipify jupyter lab
 ```
 |-- LICENSE
 |-- README.md
-|-- pixi.toml   <- environment definition (dependencies; exact versions pinned in pixi.lock)
+|-- pyproject.toml  <- project & dependency definition (exact versions pinned in uv.lock)
 |-- plipify     <- plipify code
 |-- projects
 |   |-- 01      <- One protein against many ligands

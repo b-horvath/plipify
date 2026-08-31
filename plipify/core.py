@@ -149,6 +149,9 @@ class MetalInteraction(BaseInteraction):
 
 
 class CovalentInteraction(BaseInteraction):
+    """
+    CovalentInteraction, a subclass of BaseInteraction
+    """
 
     shorthand = "covalent"
     color_rgb = 0, 0, 0
@@ -186,11 +189,28 @@ class ProteinResidue(BaseResidue):
     A residue belonging to a protein sequence
     """
 
-    # TODO: Fill list in!
-    _ALLOWED_RESIDUE_NAMES = set(
-        "ALA CYS ASP GLU PHE GLY HIS ILE LYS LEU "
-        "MET ASN PRO GLN ARG SER THR VAL TRP TYR".split()
-    )
+    _ALLOWED_RESIDUE_NAMES = {
+        "ALA",
+        "ARG",
+        "ASN",
+        "ASP",
+        "CYS",
+        "GLN",
+        "GLU",
+        "GLY",
+        "HIS",
+        "ILE",
+        "LEU",
+        "LYS",
+        "MET",
+        "PHE",
+        "PRO",
+        "SER",
+        "THR",
+        "TRP",
+        "TYR",
+        "VAL",
+    }
 
     def __init__(self, name, seq_index, chain, interactions=None, structure=None):
         self.seq_index = seq_index
@@ -232,8 +252,29 @@ class LigandResidue(BaseResidue):
     A small molecule in the vicinity of a binding site
     """
 
-    # TODO: Fill list in!
-    _ALLOWED_RESIDUE_NAMES = []
+    # TODO: Fill list in! -- done
+    _ALLOWED_RESIDUE_NAMES = {
+        "ALA",
+        "ARG",
+        "ASN",
+        "ASP",
+        "CYS",
+        "GLN",
+        "GLU",
+        "GLY",
+        "HIS",
+        "ILE",
+        "LEU",
+        "LYS",
+        "MET",
+        "PHE",
+        "PRO",
+        "SER",
+        "THR",
+        "TRP",
+        "TYR",
+        "VAL",
+    }
 
 
 class BindingSite:
