@@ -20,18 +20,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest] # , macOS-latest, windows-latest]
-        python-version: ["3.11"]
     env:
-      PYVER: ${{ matrix.python-version }}
       CI_OS: ${{ matrix.os }}
       PACKAGE: "plipify"
 
     steps:
       - name: Checkout the code
-        uses: actions/checkout@v1
-
-      - name: Install YAML parser
-        run: pip install PyYAML
+        uses: actions/checkout@v4
 
       - name: Additional info about the build
         shell: bash
@@ -40,46 +35,25 @@ jobs:
           df -h
           ulimit -a
 
-      - name: Fix conda in MacOS
-        shell: bash
-        if: startsWith(matrix.os, 'macOS')
-        run: |
-          sudo chown -R $(id -u):$(id -g) ${CONDA}
-
-      - name: Create environment for package
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y catch2  
-          . devtools/github-actions/initialize_conda.sh
-          conda activate
-          pip install PyYAML
-          conda info
-          python devtools/scripts/create_conda_env.py -n=test -p=$PYVER devtools/conda-envs/test_env.yaml
-          conda activate test
-
-      - name: Install package
-        shell: bash
-        run: |
-          . devtools/github-actions/initialize_conda.sh
-          conda activate test
-          python -m pip install . --no-deps
-          conda list --show-channel-urls
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@v0.10.2
+        with:
+          pixi-version: v0.76.2
+          environments: plipify
+          locked: true
+          cache: true
 
       - name: Run tests (pytest)
         shell: bash
         run: |
-          . devtools/github-actions/initialize_conda.sh
-          conda activate test
-          pytest -v --cov=$PACKAGE --cov-report=xml --color=yes --doctest-modules $PACKAGE/
+          pixi run -e plipify pytest -v --cov=$PACKAGE --cov-report=xml --color=yes --doctest-modules $PACKAGE/
 
       - name: CodeCov
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.xml
+          files: ./coverage.xml
           flags: unittests
-          yml: ./.codecov.yml
 
   lint-format:
     runs-on: ubuntu-latest
