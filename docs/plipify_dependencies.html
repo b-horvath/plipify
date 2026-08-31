@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>plipify &mdash; file dependency map</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1b1f24; --muted: #5c6672;
+    --border: #d9dee4; --shadow: 0 1px 3px rgba(0,0,0,.12), 0 8px 24px rgba(0,0,0,.08);
+    --edge: #9aa4b0; --edge-strong: #4a5563;
+    --package:#7c3aed; --module:#2563eb; --legacy:#b45309; --test:#0d9488;
+    --data:#65758b; --notebook:#db2777; --missing:#dc2626; --external:#94a3b8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0f1216; --panel:#171b21; --ink:#e6e9ee; --muted:#9aa4b0;
+      --border:#2a313a; --shadow: 0 1px 3px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45);
+      --edge:#4a5563; --edge-strong:#8b97a5;
+      --package:#a78bfa; --module:#60a5fa; --legacy:#fbbf24; --test:#2dd4bf;
+      --data:#94a3b8; --notebook:#f472b6; --missing:#f87171; --external:#64748b;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--ink); overflow: hidden;
+  }
+  #app { display: flex; height: 100vh; width: 100vw; }
+  #stage { position: relative; flex: 1 1 auto; overflow: hidden; }
+  svg { width: 100%; height: 100%; display: block; cursor: grab; }
+  svg.panning { cursor: grabbing; }
+
+  header {
+    position: absolute; top: 12px; left: 12px; z-index: 5;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: var(--shadow); padding: 12px 14px; max-width: 320px;
+  }
+  header h1 { margin: 0 0 2px; font-size: 15px; letter-spacing: .2px; }
+  header p { margin: 0; color: var(--muted); font-size: 12px; }
+
+  #controls {
+    position: absolute; top: 12px; right: 12px; z-index: 5;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: var(--shadow); padding: 10px 12px; width: 232px;
+  }
+  #controls h2 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .8px; color: var(--muted); }
+  #controls label { display: flex; align-items: center; gap: 8px; padding: 3px 0;
+    font-size: 13px; cursor: pointer; user-select: none; }
+  #controls .swatch { width: 11px; height: 11px; border-radius: 3px; flex: 0 0 auto; }
+  #controls .count { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #controls hr { border: 0; border-top: 1px solid var(--border); margin: 9px 0; }
+  #search {
+    width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 7px;
+    background: var(--bg); color: var(--ink); font-size: 13px; margin-bottom: 4px;
+  }
+  #controls button {
+    width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 7px;
+    background: var(--bg); color: var(--ink); font-size: 12px; cursor: pointer; margin-top: 6px;
+  }
+  #controls button:hover { border-color: var(--edge-strong); }
+
+  .node circle { stroke: var(--panel); stroke-width: 2px; cursor: pointer; transition: opacity .15s; }
+  .node text { font-size: 11px; fill: var(--ink); pointer-events: none;
+    paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
+  .node.dim { opacity: .12; }
+  .link { stroke: var(--edge); fill: none; transition: opacity .15s; }
+  .link.consumes { stroke-dasharray: 2 3; }
+  .link.data { stroke-dasharray: 1 4; stroke-linecap: round; }
+  .link.lazy { stroke-dasharray: 6 4; opacity: .7; }
+  .link.hi { stroke: var(--edge-strong); }
+  .link.dim { opacity: .05; }
+
+  #detail {
+    flex: 0 0 360px; background: var(--panel); border-left: 1px solid var(--border);
+    padding: 18px 20px; overflow-y: auto; transform: translateX(100%);
+    transition: transform .22s ease; position: absolute; right: 0; top: 0; height: 100%;
+    box-shadow: var(--shadow);
+  }
+  #detail.open { transform: translateX(0); }
+  #detail .close { float: right; border: 0; background: none; font-size: 20px;
+    color: var(--muted); cursor: pointer; line-height: 1; }
+  #detail .kicker { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; }
+  #detail h2 { margin: 4px 0 6px; font-size: 18px; word-break: break-all; }
+  #detail .path { color: var(--muted); font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+  #detail .summary { margin: 12px 0; }
+  #detail h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--muted); margin: 18px 0 6px; }
+  #detail ul { margin: 0; padding-left: 0; list-style: none; }
+  #detail li { padding: 4px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }
+  #detail li:last-child { border-bottom: 0; }
+  #detail code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+    background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+  #detail .doc { color: var(--muted); font-size: 12px; display: block; margin-top: 2px; }
+  #detail .pill { display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; color: #fff; }
+  .tooltip {
+    position: absolute; z-index: 9; pointer-events: none; background: var(--ink); color: var(--bg);
+    padding: 4px 8px; border-radius: 6px; font-size: 12px; opacity: 0; transition: opacity .1s;
+    white-space: nowrap; transform: translate(-50%, -140%);
+  }
+  footer { position: absolute; bottom: 10px; left: 12px; z-index: 5;
+    color: var(--muted); font-size: 11px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <header>
+      <h1>plipify &mdash; file dependency map</h1>
+      <p>Every file under <code>plipify/</code> and the notebooks that use it.
+         Drag nodes, scroll to zoom, click a node for details. Double-click a node to unpin it.</p>
+    </header>
+    <div id="controls">
+      <h2>Show</h2>
+      <div id="filters"></div>
+      <hr>
+      <label><input type="checkbox" id="toggle-ext"> external libraries</label>
+      <label><input type="checkbox" id="toggle-lazy" checked> lazy (in-function) imports</label>
+      <hr>
+      <input id="search" type="search" placeholder="Filter by name&hellip;" autocomplete="off">
+      <button id="reset">Reset view &amp; layout</button>
+    </div>
+    <svg id="svg">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#8b97a5"></path>
+        </marker>
+      </defs>
+      <g id="viewport">
+        <g id="links"></g>
+        <g id="nodes"></g>
+      </g>
+    </svg>
+    <div class="tooltip" id="tooltip"></div>
+    <footer id="footer"></footer>
+  </div>
+  <aside id="detail"></aside>
+</div>
+
+<script id="graph-data" type="application/json">{"generated":"2026-08-31 09:07","nodes":[{"id":"plipify/__init__.py","label":"__init__.py","category":"package","path":"plipify/__init__.py","summary":"plipify PLIPify project","loc":13,"classes":[],"functions":[],"external":[],"lazy":[]},{"id":"plipify/tests/__init__.py","label":"__init__.py","category":"package","path":"plipify/tests/__init__.py","summary":"Empty init file in case you choose a package besides PyTest such as Nose which may look for such a file","loc":4,"classes":[],"functions":[],"external":[],"lazy":[]},{"id":"plipify/_version.py","label":"_version.py","category":"module","path":"plipify/_version.py","summary":"Git implementation of _version.py.","loc":521,"classes":[{"name":"VersioneerConfig","bases":[],"doc":"Container for Versioneer configuration parameters."},{"name":"NotThisMethod","bases":["Exception"],"doc":"Exception raised if a method is not valid for the current scenario."}],"functions":[{"name":"get_keywords","doc":"Get the keywords needed to look up the version information."},{"name":"get_config","doc":"Create, populate and return the VersioneerConfig() object."},{"name":"register_vcs_handler","doc":"Decorator to mark a method as the handler for a particular VCS."},{"name":"run_command","doc":"Call the given command(s)."},{"name":"versions_from_parentdir","doc":"Try to determine the version from the parent directory name."},{"name":"git_get_keywords","doc":"Extract version information from the given file."},{"name":"git_versions_from_keywords","doc":"Get version information from git keywords."},{"name":"git_pieces_from_vcs","doc":"Get version from 'git describe' in the root of the source tree."},{"name":"plus_or_dot","doc":"Return a + if we don't already have one, else return a ."},{"name":"render_pep440","doc":"Build up version string, with post-release \"local version identifier\"."},{"name":"render_pep440_pre","doc":"TAG[.post.devDISTANCE] -- No -dirty."},{"name":"render_pep440_post","doc":"TAG[.postDISTANCE[.dev0]+gHEX] ."},{"name":"render_pep440_old","doc":"TAG[.postDISTANCE[.dev0]] ."},{"name":"render_git_describe","doc":"TAG[-DISTANCE-gHEX][-dirty]."},{"name":"render_git_describe_long","doc":"TAG-DISTANCE-gHEX[-dirty]."},{"name":"render","doc":"Render the given version pieces into the requested style."},{"name":"get_versions","doc":"Get version information or return default if unable to do so."}],"external":["errno","os","re","subprocess","sys"],"lazy":[]},{"id":"plipify/core.py","label":"core.py","category":"module","path":"plipify/core.py","summary":"core.py","loc":574,"classes":[{"name":"BaseInteraction","bases":[],"doc":"This the base class for all interaction types"},{"name":"HydrophobicInteraction","bases":["BaseInteraction"],"doc":"HydrophobicInteraction, a subclass of BaseInteraction"},{"name":"HbondInteraction","bases":["BaseInteraction"],"doc":"HbondInteraction, a subclass of BaseInteraction"},{"name":"HbondDonorInteraction","bases":["HbondInteraction"],"doc":"HbondInteraction, a subclass of BaseInteraction"},{"name":"HbondAcceptorInteraction","bases":["HbondInteraction"],"doc":"HbondInteraction, a subclass of BaseInteraction"},{"name":"WaterbridgeInteraction","bases":["BaseInteraction"],"doc":"WaterbridgeInteraction, a subclass of BaseInteraction"},{"name":"SaltbridgeInteraction","bases":["BaseInteraction"],"doc":"SaltbridgeInteraction, a subclass of BaseInteraction"},{"name":"PistackingInteraction","bases":["BaseInteraction"],"doc":"PistackingInteraction, a subclass of BaseInteraction"},{"name":"PicationInteraction","bases":["BaseInteraction"],"doc":"PicationInteraction, a subclass of BaseInteraction"},{"name":"HalogenInteraction","bases":["BaseInteraction"],"doc":"HalogenInteraction, a subclass of BaseInteraction"},{"name":"MetalInteraction","bases":["BaseInteraction"],"doc":"MetalInteraction, a subclass of BaseInteraction"},{"name":"CovalentInteraction","bases":["BaseInteraction"],"doc":""},{"name":"BaseResidue","bases":[],"doc":"A collection of covalently bonded atoms"},{"name":"ProteinResidue","bases":["BaseResidue"],"doc":"A residue belonging to a protein sequence"},{"name":"LigandResidue","bases":["BaseResidue"],"doc":"A small molecule in the vicinity of a binding site"},{"name":"BindingSite","bases":[],"doc":"A collection of protein residues and ligands"},{"name":"Structure","bases":[],"doc":"A collection of ProteinResidue objects, and potentially LigandResidue objects, which can define one or more BindingSite objects."}],"functions":[],"external":["Bio","collections","pathlib"],"lazy":["IPython","nglview","pandas","plip"]},{"id":"plipify/fingerprints.py","label":"fingerprints.py","category":"module","path":"plipify/fingerprints.py","summary":"fingerprints.py","loc":291,"classes":[{"name":"InteractionFingerprint","bases":[],"doc":"This class will take a protein-ligand structure, analyze its interactions and report a fingerprint per residue."},{"name":"_LabeledValue","bases":[],"doc":"This class is used to assign additional information to a value in the fingerprint."}],"functions":[],"external":["Bio","collections","numpy","pandas","pathlib","subprocess","tempfile"],"lazy":[]},{"id":"plipify/visualization.py","label":"visualization.py","category":"module","path":"plipify/visualization.py","summary":"visualization.py","loc":870,"classes":[{"name":"PymolVisualizer","bases":["object"],"doc":"A series of tools to create publication ready images using PyMol"}],"functions":[{"name":"fingerprint_barplot","doc":"Visualize fingerprint as barplot either based on count or fp_type."},{"name":"fingerprint_heatmap","doc":"Visualize fingerprint as heatmap either based on count or fp_type."},{"name":"_prepare_tabledata","doc":"Create interaction index dictionary for fingerprint table. The keys of this dictionary are the interaction types and the values for each interaction type are a list of the positions (indices) of the fingerprint array that represent this interaction type."},{"name":"fingerprint_table","doc":"Create HTML and CSS table layout for the calculated fingerprint."},{"name":"fingerprint_nglview","doc":"Depict interaction hotspots in NGLView"},{"name":"nglview_color_side_chains_by_frequency","doc":"Adapted from this [gist](https://gist.github.com/dominiquesydow/1aa19cc5583a31bfbd58bc8a066a7705) by Dominique Sydow."},{"name":"fingerprint_writepdb","doc":"Write interaction hotspots to a PDB file"}],"external":["MDAnalysis","matplotlib","os","pathlib","plotly","seaborn"],"lazy":["ipywidgets","matplotlib","nglview","pymol"]},{"id":"plipify/_deprecated.py","label":"_deprecated.py","category":"legacy","path":"plipify/_deprecated.py","summary":"","loc":179,"classes":[],"functions":[{"name":"read_residues","doc":"Reads residue file."},{"name":"divide_list","doc":"Split list into lists of given size."},{"name":"residue_dictionary","doc":"Create index dictionary for residues."},{"name":"interaction_dictionary","doc":"Create index dictionary for interactions."},{"name":"analyze_interactions","doc":""},{"name":"site_to_dataframes","doc":""},{"name":"get_plip_data","doc":"Get data from plip and store it in a dictionary."},{"name":"show_plip_data","doc":""},{"name":"interaction_fingerprint","doc":"Create one indivual fingerprint for one structure."},{"name":"interaction_fingerprint_list","doc":"Create list of fingerprints for all given structures."},{"name":"frequency_interaction_fingerprint","doc":"Create frequency fingerprint from list of fingerprints."}],"external":["IPython","csv","os","pandas","plip","tqdm"],"lazy":[]},{"id":"plipify/tests/test_plipify.py","label":"test_plipify.py","category":"test","path":"plipify/tests/test_plipify.py","summary":"Unit and regression test for the plipify package.","loc":12,"classes":[],"functions":[{"name":"test_plipify_imported","doc":"Sample test, will always pass so long as import statement worked"}],"external":["sys"],"lazy":[]},{"id":"plipify/data","label":"data/","category":"data","path":"plipify/data","summary":"Bundled sample data: fragment-screen PDB structures, the Mpro residue list, and figures used in the docs.","members":[{"name":"MPro_residues.csv","kind":"csv","detail":"Pre-defined SARS-CoV-2 Mpro binding-site residue list used by project 01"},{"name":"diamond_xchem_screen_mpro_all_pdbs/","kind":"directory","detail":"~50 Diamond/XChem Mpro fragment-screen PDB structures + file list","count":80},{"name":"ifps.png","kind":"png","detail":"Interaction-fingerprint schematic"},{"name":"ifps_1.png","kind":"png","detail":"Interaction-fingerprint schematic (variant)"},{"name":"interactionpic.PNG","kind":"PNG","detail":"Illustration of PLIP interaction types"},{"name":"look_and_say.dat","kind":"dat","detail":"Cookiecutter sample data file (unused by plipify)"},{"name":"plipify_fps.png","kind":"png","detail":"Fingerprint figure used in the README"},{"name":"plipify_modules.PNG","kind":"PNG","detail":"Hand-drawn module overview shipped in the docs"}]},{"id":"plipify/Plipify.ipynb","label":"Plipify.ipynb","category":"notebook","path":"plipify/Plipify.ipynb","summary":"Jupyter notebook (15 code cells).","loc":146,"imports":["from plipify.plip_fingerprints import read_residues","from plipify.core import Structure","from plipify.fingerprints import InteractionFingerprint","from plipify.fp_visual import fingerprint_barplot, fingerprint_heatmap","from plipify.fp_visual import fingerprint_table","from plipify.plip_fingerprints import get_plip_data, show_plip_data","from plipify.plip_fingerprints import read_residues","from plipify.core import Structure","from plipify.fingerprints import InteractionFingerprint","from plipify.plip_fingerprints import get_plip_data, show_plip_data"]},{"id":"projects/01/debug.ipynb","label":"debug.ipynb","category":"notebook","path":"projects/01/debug.ipynb","summary":"Jupyter notebook (5 code cells).","loc":7,"imports":["from plipify.core import Structure"]},{"id":"projects/01/fragalysis.ipynb","label":"fragalysis.ipynb","category":"notebook","path":"projects/01/fragalysis.ipynb","summary":"Jupyter notebook (48 code cells).","loc":274,"imports":["from plipify.fingerprints import InteractionFingerprint","from plipify.visualization import (","from plipify.core import Structure"]},{"id":"projects/01/xchem.ipynb","label":"xchem.ipynb","category":"notebook","path":"projects/01/xchem.ipynb","summary":"Jupyter notebook (18 code cells).","loc":74,"imports":["from plipify.core import Structure","from plipify.fingerprints import InteractionFingerprint","from plipify.visualization import fingerprint_barplot, fingerprint_heatmap, fingerprint_table, fingerprint_nglview"]},{"id":"projects/02/main.ipynb","label":"main.ipynb","category":"notebook","path":"projects/02/main.ipynb","summary":"Jupyter notebook (36 code cells).","loc":150,"imports":["from plipify.core import Structure","from plipify.fingerprints import InteractionFingerprint","import plipify.visualization","from plipify.visualization import fingerprint_barplot, fingerprint_heatmap, fingerprint_table, fingerprint_nglview"]},{"id":"plipify/fp_visual.py","label":"fp_visual.py (missing)","category":"missing","path":"plipify/fp_visual.py","summary":"Imported by a notebook but not present in the current package (renamed or removed).","loc":0,"classes":[],"functions":[],"external":[],"lazy":[]},{"id":"plipify/plip_fingerprints.py","label":"plip_fingerprints.py (missing)","category":"missing","path":"plipify/plip_fingerprints.py","summary":"Imported by a notebook but not present in the current package (renamed or removed).","loc":0,"classes":[],"functions":[],"external":[],"lazy":[]},{"id":"ext:Bio","label":"Bio","category":"external","kind":"third-party","note":"Biopython -- residue names, sequence alignment I/O"},{"id":"ext:IPython","label":"IPython","category":"external","kind":"third-party","note":"rich display hooks inside Jupyter"},{"id":"ext:MDAnalysis","label":"MDAnalysis","category":"external","kind":"third-party","note":"reads/writes PDB files, per-residue b-factor painting"},{"id":"ext:collections","label":"collections","category":"external","kind":"standard library","note":""},{"id":"ext:csv","label":"csv","category":"external","kind":"standard library","note":""},{"id":"ext:errno","label":"errno","category":"external","kind":"standard library","note":""},{"id":"ext:ipywidgets","label":"ipywidgets","category":"external","kind":"third-party","note":"HTML widget wrapper for the fingerprint table"},{"id":"ext:matplotlib","label":"matplotlib","category":"external","kind":"third-party","note":"static plotting (heatmap)"},{"id":"ext:nglview","label":"nglview","category":"external","kind":"third-party","note":"in-notebook 3D structure viewer"},{"id":"ext:numpy","label":"numpy","category":"external","kind":"third-party","note":"numerical arrays for the raw fingerprint vectors"},{"id":"ext:os","label":"os","category":"external","kind":"standard library","note":""},{"id":"ext:pandas","label":"pandas","category":"external","kind":"third-party","note":"DataFrame representation of fingerprints"},{"id":"ext:pathlib","label":"pathlib","category":"external","kind":"standard library","note":""},{"id":"ext:plip","label":"plip","category":"external","kind":"third-party","note":"Protein-Ligand Interaction Profiler -- the underlying engine"},{"id":"ext:plotly","label":"plotly","category":"external","kind":"third-party","note":"interactive stacked bar chart"},{"id":"ext:pymol","label":"pymol","category":"external","kind":"third-party","note":"publication-quality ray-traced images"},{"id":"ext:re","label":"re","category":"external","kind":"standard library","note":""},{"id":"ext:seaborn","label":"seaborn","category":"external","kind":"third-party","note":"heatmap styling on top of matplotlib"},{"id":"ext:subprocess","label":"subprocess","category":"external","kind":"standard library","note":""},{"id":"ext:sys","label":"sys","category":"external","kind":"standard library","note":""},{"id":"ext:tempfile","label":"tempfile","category":"external","kind":"standard library","note":""},{"id":"ext:tqdm","label":"tqdm","category":"external","kind":"third-party","note":"progress bars while batch-processing structures"}],"links":[{"source":"plipify/__init__.py","target":"plipify/_version.py","type":"imports","lazy":false,"detail":"from ._version import get_versions"},{"source":"plipify/_deprecated.py","target":"ext:csv","type":"external","lazy":false,"detail":"import csv"},{"source":"plipify/_deprecated.py","target":"ext:os","type":"external","lazy":false,"detail":"import os"},{"source":"plipify/_deprecated.py","target":"ext:pandas","type":"external","lazy":false,"detail":"import pandas"},{"source":"plipify/_deprecated.py","target":"ext:tqdm","type":"external","lazy":false,"detail":"from tqdm.auto import tqdm"},{"source":"plipify/_deprecated.py","target":"ext:plip","type":"external","lazy":false,"detail":"from plip.structure.preparation import PDBComplex"},{"source":"plipify/_deprecated.py","target":"ext:IPython","type":"external","lazy":false,"detail":"from IPython.display import display, Markdown"},{"source":"plipify/_version.py","target":"ext:errno","type":"external","lazy":false,"detail":"import errno"},{"source":"plipify/_version.py","target":"ext:os","type":"external","lazy":false,"detail":"import os"},{"source":"plipify/_version.py","target":"ext:re","type":"external","lazy":false,"detail":"import re"},{"source":"plipify/_version.py","target":"ext:subprocess","type":"external","lazy":false,"detail":"import subprocess"},{"source":"plipify/_version.py","target":"ext:sys","type":"external","lazy":false,"detail":"import sys"},{"source":"plipify/core.py","target":"ext:collections","type":"external","lazy":false,"detail":"from collections import defaultdict, Counter"},{"source":"plipify/core.py","target":"ext:pathlib","type":"external","lazy":false,"detail":"from pathlib import Path"},{"source":"plipify/core.py","target":"ext:Bio","type":"external","lazy":false,"detail":"from Bio.Data import IUPACData"},{"source":"plipify/core.py","target":"ext:pandas","type":"external","lazy":true,"detail":"import pandas"},{"source":"plipify/core.py","target":"ext:plip","type":"external","lazy":true,"detail":"from plip.structure.preparation import PDBComplex"},{"source":"plipify/core.py","target":"ext:nglview","type":"external","lazy":true,"detail":"import nglview"},{"source":"plipify/core.py","target":"ext:IPython","type":"external","lazy":true,"detail":"from IPython.display import display"},{"source":"plipify/fingerprints.py","target":"plipify/core.py","type":"imports","lazy":false,"detail":"from .core import ProteinResidue"},{"source":"plipify/fingerprints.py","target":"ext:subprocess","type":"external","lazy":false,"detail":"import subprocess"},{"source":"plipify/fingerprints.py","target":"ext:collections","type":"external","lazy":false,"detail":"from collections import defaultdict, Counter"},{"source":"plipify/fingerprints.py","target":"ext:tempfile","type":"external","lazy":false,"detail":"from tempfile import TemporaryDirectory"},{"source":"plipify/fingerprints.py","target":"ext:pathlib","type":"external","lazy":false,"detail":"from pathlib import Path"},{"source":"plipify/fingerprints.py","target":"ext:numpy","type":"external","lazy":false,"detail":"import numpy"},{"source":"plipify/fingerprints.py","target":"ext:pandas","type":"external","lazy":false,"detail":"import pandas"},{"source":"plipify/fingerprints.py","target":"ext:Bio","type":"external","lazy":false,"detail":"from Bio.AlignIO.FastaIO import MultipleSeqAlignment, Seq, SeqRecord"},{"source":"plipify/tests/test_plipify.py","target":"ext:sys","type":"external","lazy":false,"detail":"import sys"},{"source":"plipify/visualization.py","target":"plipify/core.py","type":"imports","lazy":false,"detail":"from plipify.core import Structure"},{"source":"plipify/visualization.py","target":"ext:os","type":"external","lazy":false,"detail":"import os"},{"source":"plipify/visualization.py","target":"ext:pathlib","type":"external","lazy":false,"detail":"from pathlib import Path"},{"source":"plipify/visualization.py","target":"ext:matplotlib","type":"external","lazy":false,"detail":"import matplotlib.pyplot"},{"source":"plipify/visualization.py","target":"ext:MDAnalysis","type":"external","lazy":false,"detail":"import MDAnalysis"},{"source":"plipify/visualization.py","target":"ext:plotly","type":"external","lazy":false,"detail":"import plotly.graph_objects"},{"source":"plipify/visualization.py","target":"ext:seaborn","type":"external","lazy":false,"detail":"import seaborn"},{"source":"plipify/visualization.py","target":"ext:nglview","type":"external","lazy":true,"detail":"import nglview"},{"source":"plipify/visualization.py","target":"ext:ipywidgets","type":"external","lazy":true,"detail":"from ipywidgets import HTML"},{"source":"plipify/visualization.py","target":"ext:pymol","type":"external","lazy":true,"detail":"import pymol"},{"source":"plipify/core.py","target":"plipify/data","type":"data","lazy":false,"detail":"Structure.from_pdbfile() loads .pdb structures at runtime"},{"source":"plipify/_deprecated.py","target":"plipify/data","type":"data","lazy":false,"detail":"get_plip_data() / read_residues() consume .pdb and .csv inputs"},{"source":"plipify/visualization.py","target":"plipify/data","type":"data","lazy":false,"detail":"fingerprint_writepdb() writes painted .pdb files"},{"source":"plipify/Plipify.ipynb","target":"plipify/plip_fingerprints.py","type":"consumes","lazy":false,"detail":"from plipify.plip_fingerprints import read_residues"},{"source":"plipify/Plipify.ipynb","target":"plipify/core.py","type":"consumes","lazy":false,"detail":"from plipify.core import Structure"},{"source":"plipify/Plipify.ipynb","target":"plipify/fingerprints.py","type":"consumes","lazy":false,"detail":"from plipify.fingerprints import InteractionFingerprint"},{"source":"plipify/Plipify.ipynb","target":"plipify/fp_visual.py","type":"consumes","lazy":false,"detail":"from plipify.fp_visual import fingerprint_barplot, fingerprint_heatmap"},{"source":"projects/01/debug.ipynb","target":"plipify/core.py","type":"consumes","lazy":false,"detail":"from plipify.core import Structure"},{"source":"projects/01/fragalysis.ipynb","target":"plipify/fingerprints.py","type":"consumes","lazy":false,"detail":"from plipify.fingerprints import InteractionFingerprint"},{"source":"projects/01/fragalysis.ipynb","target":"plipify/visualization.py","type":"consumes","lazy":false,"detail":"from plipify.visualization import ("},{"source":"projects/01/fragalysis.ipynb","target":"plipify/core.py","type":"consumes","lazy":false,"detail":"from plipify.core import Structure"},{"source":"projects/01/xchem.ipynb","target":"plipify/core.py","type":"consumes","lazy":false,"detail":"from plipify.core import Structure"},{"source":"projects/01/xchem.ipynb","target":"plipify/fingerprints.py","type":"consumes","lazy":false,"detail":"from plipify.fingerprints import InteractionFingerprint"},{"source":"projects/01/xchem.ipynb","target":"plipify/visualization.py","type":"consumes","lazy":false,"detail":"from plipify.visualization import fingerprint_barplot, fingerprint_heatmap, fingerprint_table, fingerprint_nglview"},{"source":"projects/02/main.ipynb","target":"plipify/core.py","type":"consumes","lazy":false,"detail":"from plipify.core import Structure"},{"source":"projects/02/main.ipynb","target":"plipify/fingerprints.py","type":"consumes","lazy":false,"detail":"from plipify.fingerprints import InteractionFingerprint"},{"source":"projects/02/main.ipynb","target":"plipify/visualization.py","type":"consumes","lazy":false,"detail":"import plipify.visualization"}]}</script>
+<script>
+(function () {
+  "use strict";
+  const DATA = JSON.parse(document.getElementById("graph-data").textContent);
+  const SVG = document.getElementById("svg");
+  const VIEWPORT = document.getElementById("viewport");
+  const LINKS_G = document.getElementById("links");
+  const NODES_G = document.getElementById("nodes");
+  const TOOLTIP = document.getElementById("tooltip");
+  const DETAIL = document.getElementById("detail");
+  document.getElementById("footer").textContent =
+    "generated " + DATA.generated + "  ·  " + DATA.nodes.length + " nodes, " + DATA.links.length + " edges";
+
+  const CATS = {
+    package:  { label: "package __init__", color: "var(--package)" },
+    module:   { label: "module (.py)",     color: "var(--module)" },
+    legacy:   { label: "legacy module",    color: "var(--legacy)" },
+    test:     { label: "test",             color: "var(--test)" },
+    data:     { label: "data files",       color: "var(--data)" },
+    notebook: { label: "notebook",         color: "var(--notebook)" },
+    missing:  { label: "missing / renamed",color: "var(--missing)" },
+    external: { label: "external library", color: "var(--external)" },
+  };
+
+  const R = { package: 13, module: 15, legacy: 12, test: 10, data: 16, notebook: 11, missing: 10, external: 6 };
+
+  // ---- state ----------------------------------------------------------------
+  const nodeById = new Map(DATA.nodes.map(n => [n.id, n]));
+  const visibleCats = new Set(Object.keys(CATS).filter(c => c !== "external"));
+  let showExternal = false, showLazy = true, searchTerm = "";
+
+  const W = () => SVG.clientWidth, H = () => SVG.clientHeight;
+  DATA.nodes.forEach((n, i) => {
+    const angle = i * 2.399963229728653;
+    const rad = 30 + 12 * Math.sqrt(i);
+    n.x = W() / 2 + rad * Math.cos(angle);
+    n.y = H() / 2 + rad * Math.sin(angle);
+    n.vx = 0; n.vy = 0; n.pinned = false;
+  });
+
+  // ---- view transform (zoom / pan) ---------------------------------------
+  const view = { x: 0, y: 0, k: 1 };
+  function applyView() {
+    VIEWPORT.setAttribute("transform", `translate(${view.x},${view.y}) scale(${view.k})`);
+  }
+  SVG.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const rect = SVG.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const factor = Math.exp(-e.deltaY * 0.0015);
+    const k2 = Math.min(4, Math.max(0.2, view.k * factor));
+    view.x = mx - (mx - view.x) * (k2 / view.k);
+    view.y = my - (my - view.y) * (k2 / view.k);
+    view.k = k2;
+    applyView();
+  }, { passive: false });
+
+  let panning = false, panStart = null;
+  const drag = { node: null };
+  SVG.addEventListener("mousedown", (e) => {
+    if (e.target.closest(".node")) return;
+    panning = true; panStart = { x: e.clientX - view.x, y: e.clientY - view.y };
+    SVG.classList.add("panning");
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (panning) { view.x = e.clientX - panStart.x; view.y = e.clientY - panStart.y; applyView(); }
+    if (drag.node) {
+      const rect = SVG.getBoundingClientRect();
+      drag.node.x = (e.clientX - rect.left - view.x) / view.k;
+      drag.node.y = (e.clientY - rect.top - view.y) / view.k;
+      drag.node.vx = 0; drag.node.vy = 0; drag.node.pinned = true;
+      alpha = Math.max(alpha, 0.3);
+    }
+  });
+  window.addEventListener("mouseup", () => {
+    panning = false; drag.node = null; SVG.classList.remove("panning");
+  });
+
+  // ---- force simulation --------------------------------------------------
+  let activeNodes = [], activeLinks = [], alpha = 1;
+  const CHARGE = -1400, LINK_DIST = 92, LINK_K = 0.04, CENTER_K = 0.015, DAMP = 0.86;
+
+  function tick() {
+    if (alpha > 0.005) {
+      alpha *= 0.992;
+      const n = activeNodes.length;
+      for (let i = 0; i < n; i++) {
+        const a = activeNodes[i];
+        for (let j = i + 1; j < n; j++) {
+          const b = activeNodes[j];
+          let dx = b.x - a.x, dy = b.y - a.y;
+          let d2 = dx * dx + dy * dy || 0.01;
+          if (d2 > 90000) continue;
+          const d = Math.sqrt(d2);
+          const f = (CHARGE * alpha) / d2;
+          const fx = (dx / d) * f, fy = (dy / d) * f;
+          a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+        }
+      }
+      for (const l of activeLinks) {
+        const s = l.s, t = l.t;
+        let dx = t.x - s.x, dy = t.y - s.y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+        const f = LINK_K * alpha * (d - LINK_DIST);
+        const fx = (dx / d) * f, fy = (dy / d) * f;
+        s.vx += fx; s.vy += fy; t.vx -= fx; t.vy -= fy;
+      }
+      const cx = W() / 2, cy = H() / 2;
+      for (const a of activeNodes) {
+        a.vx += (cx - a.x) * CENTER_K * alpha;
+        a.vy += (cy - a.y) * CENTER_K * alpha;
+        if (!a.pinned) {
+          a.vx *= DAMP; a.vy *= DAMP;
+          a.x += a.vx; a.y += a.vy;
+        } else { a.vx = 0; a.vy = 0; }
+      }
+      positionElements();
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ---- rendering -------------------------------------------------------
+  let linkEls = new Map(), nodeEls = new Map();
+
+  function passesFilter(n) {
+    if (!visibleCats.has(n.category)) return false;
+    if (n.category === "external" && !showExternal) return false;
+    if (searchTerm && !n.id.toLowerCase().includes(searchTerm)) return false;
+    return true;
+  }
+  function linkVisible(l) {
+    if (l.lazy && !showLazy) return false;
+    return passesFilter(nodeById.get(l.source)) && passesFilter(nodeById.get(l.target));
+  }
+
+  function rebuild() {
+    activeNodes = DATA.nodes.filter(passesFilter);
+    const liveIds = new Set(activeNodes.map(n => n.id));
+    activeLinks = DATA.links.filter(l => linkVisible(l) && liveIds.has(l.source) && liveIds.has(l.target))
+      .map(l => ({ ...l, s: nodeById.get(l.source), t: nodeById.get(l.target) }));
+
+    LINKS_G.innerHTML = ""; NODES_G.innerHTML = "";
+    linkEls = new Map(); nodeEls = new Map();
+
+    activeLinks.forEach((l, i) => {
+      const p = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      p.setAttribute("class", "link " + l.type + (l.lazy ? " lazy" : ""));
+      p.setAttribute("marker-end", "url(#arrow)");
+      LINKS_G.appendChild(p);
+      linkEls.set(i, p);
+      l._el = p;
+    });
+
+    activeNodes.forEach(n => {
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.setAttribute("class", "node");
+      g.dataset.id = n.id;
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("r", R[n.category] || 9);
+      c.setAttribute("fill", CATS[n.category].color);
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      label.setAttribute("x", (R[n.category] || 9) + 4);
+      label.setAttribute("y", 4);
+      label.textContent = n.label;
+      g.appendChild(c); g.appendChild(label);
+      NODES_G.appendChild(g);
+      nodeEls.set(n.id, g);
+
+      g.addEventListener("mousedown", (e) => { e.stopPropagation(); drag.node = n; });
+      g.addEventListener("mouseenter", () => hoverNode(n));
+      g.addEventListener("mouseleave", clearHover);
+      g.addEventListener("mousemove", (e) => {
+        TOOLTIP.style.left = e.clientX + "px";
+        TOOLTIP.style.top = e.clientY + "px";
+      });
+      g.addEventListener("click", (e) => { e.stopPropagation(); showDetail(n); });
+      g.addEventListener("dblclick", (e) => { e.stopPropagation(); n.pinned = false; alpha = Math.max(alpha, .3); });
+    });
+
+    alpha = Math.max(alpha, 0.6);
+    positionElements();
+  }
+
+  function positionElements() {
+    for (const l of activeLinks) {
+      const s = l.s, t = l.t;
+      const dx = t.x - s.x, dy = t.y - s.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const pad = (R[t.category] || 9) + 7;
+      l._el.setAttribute("x1", s.x);
+      l._el.setAttribute("y1", s.y);
+      l._el.setAttribute("x2", t.x - (dx / d) * pad);
+      l._el.setAttribute("y2", t.y - (dy / d) * pad);
+    }
+    for (const n of activeNodes) {
+      const el = nodeEls.get(n.id);
+      if (el) el.setAttribute("transform", `translate(${n.x},${n.y})`);
+    }
+  }
+
+  // ---- hover highlight ------------------------------------------------
+  function neighbours(id) {
+    const set = new Set([id]);
+    for (const l of activeLinks) {
+      if (l.source === id) set.add(l.target);
+      if (l.target === id) set.add(l.source);
+    }
+    return set;
+  }
+  function hoverNode(n) {
+    const near = neighbours(n.id);
+    for (const [id, el] of nodeEls) el.classList.toggle("dim", !near.has(id));
+    for (const l of activeLinks) {
+      const on = l.source === n.id || l.target === n.id;
+      l._el.classList.toggle("hi", on);
+      l._el.classList.toggle("dim", !on);
+    }
+    TOOLTIP.textContent = n.summary || n.id;
+    TOOLTIP.style.opacity = 1;
+  }
+  function clearHover() {
+    for (const el of nodeEls.values()) el.classList.remove("dim");
+    for (const l of activeLinks) l._el.classList.remove("hi", "dim");
+    TOOLTIP.style.opacity = 0;
+  }
+
+  // ---- detail panel -------------------------------------------------
+  function esc(s) { return String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+
+  function showDetail(n) {
+    const out = [];
+    out.push(`<button class="close" aria-label="close">&times;</button>`);
+    out.push(`<div class="kicker" style="color:${CATS[n.category].color}">${esc(CATS[n.category].label)}</div>`);
+    out.push(`<h2>${esc(n.label)}</h2>`);
+    if (n.path) out.push(`<div class="path">${esc(n.path)}</div>`);
+    if (n.summary) out.push(`<p class="summary">${esc(n.summary)}</p>`);
+
+    const meta = [];
+    if (n.loc) meta.push(`${n.loc} lines`);
+    if (n.kind) meta.push(esc(n.kind));
+    if (meta.length) out.push(`<p style="color:var(--muted);font-size:12px;margin:-6px 0 0">${meta.join(" · ")}</p>`);
+    if (n.note) out.push(`<p class="summary">${esc(n.note)}</p>`);
+
+    const outgoing = DATA.links.filter(l => l.source === n.id);
+    const incoming = DATA.links.filter(l => l.target === n.id);
+
+    if (n.classes && n.classes.length) {
+      out.push(`<h3>Classes (${n.classes.length})</h3><ul>`);
+      for (const c of n.classes) {
+        const bases = c.bases && c.bases.length ? `<span class="doc">extends ${esc(c.bases.join(", "))}</span>` : "";
+        out.push(`<li><code>${esc(c.name)}</code>${bases}${c.doc ? `<span class="doc">${esc(c.doc)}</span>` : ""}</li>`);
+      }
+      out.push(`</ul>`);
+    }
+    if (n.functions && n.functions.length) {
+      out.push(`<h3>Functions (${n.functions.length})</h3><ul>`);
+      for (const f of n.functions)
+        out.push(`<li><code>${esc(f.name)}()</code>${f.doc ? `<span class="doc">${esc(f.doc)}</span>` : ""}</li>`);
+      out.push(`</ul>`);
+    }
+    if (n.members && n.members.length) {
+      out.push(`<h3>Contents</h3><ul>`);
+      for (const m of n.members) {
+        const cnt = m.count ? ` <span class="doc">(${m.count} files)</span>` : "";
+        out.push(`<li><code>${esc(m.name)}</code>${cnt}${m.detail ? `<span class="doc">${esc(m.detail)}</span>` : ""}</li>`);
+      }
+      out.push(`</ul>`);
+    }
+
+    const imp = outgoing.filter(l => l.type === "imports" || l.type === "consumes");
+    if (imp.length) {
+      out.push(`<h3>Depends on</h3><ul>`);
+      for (const l of imp)
+        out.push(`<li><code>${esc(nodeById.get(l.target).label)}</code>${l.lazy ? ' <span class="doc">lazy</span>' : ""}<span class="doc">${esc(l.detail)}</span></li>`);
+      out.push(`</ul>`);
+    }
+    const ext = outgoing.filter(l => l.type === "external");
+    if (ext.length) {
+      out.push(`<h3>External libraries</h3><ul>`);
+      for (const l of ext) {
+        const tn = nodeById.get(l.target);
+        out.push(`<li><code>${esc(tn.label)}</code> <span class="doc">${esc(tn.kind || "")}${tn.note ? " — " + esc(tn.note) : ""}</span><span class="doc">${esc(l.detail)}</span></li>`);
+      }
+      out.push(`</ul>`);
+    }
+    const dataOut = outgoing.filter(l => l.type === "data");
+    if (dataOut.length) {
+      out.push(`<h3>Reads / writes</h3><ul>`);
+      for (const l of dataOut)
+        out.push(`<li><code>${esc(nodeById.get(l.target).label)}</code><span class="doc">${esc(l.detail)}</span></li>`);
+      out.push(`</ul>`);
+    }
+    if (incoming.length) {
+      out.push(`<h3>Used by (${incoming.length})</h3><ul>`);
+      for (const l of incoming)
+        out.push(`<li><code>${esc(nodeById.get(l.source).label)}</code><span class="doc">${esc(l.detail)}</span></li>`);
+      out.push(`</ul>`);
+    }
+
+    DETAIL.innerHTML = out.join("");
+    DETAIL.classList.add("open");
+    DETAIL.querySelector(".close").addEventListener("click", () => DETAIL.classList.remove("open"));
+  }
+  SVG.addEventListener("click", (e) => { if (!e.target.closest(".node")) DETAIL.classList.remove("open"); });
+
+  // ---- controls ------------------------------------------------------
+  const filtersDiv = document.getElementById("filters");
+  const counts = {};
+  DATA.nodes.forEach(n => counts[n.category] = (counts[n.category] || 0) + 1);
+  Object.entries(CATS).forEach(([key, meta]) => {
+    if (!counts[key]) return;
+    const lbl = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = key !== "external";
+    cb.addEventListener("change", () => {
+      if (cb.checked) visibleCats.add(key); else visibleCats.delete(key);
+      if (key === "external") { showExternal = cb.checked; document.getElementById("toggle-ext").checked = cb.checked; }
+      rebuild();
+    });
+    lbl.appendChild(cb);
+    const sw = document.createElement("span");
+    sw.className = "swatch"; sw.style.background = meta.color;
+    lbl.appendChild(sw);
+    lbl.appendChild(document.createTextNode(meta.label));
+    const c = document.createElement("span");
+    c.className = "count"; c.textContent = counts[key];
+    lbl.appendChild(c);
+    filtersDiv.appendChild(lbl);
+  });
+
+  const extToggle = document.getElementById("toggle-ext");
+  extToggle.addEventListener("change", () => {
+    showExternal = extToggle.checked;
+    if (showExternal) visibleCats.add("external"); else visibleCats.delete("external");
+    [...filtersDiv.querySelectorAll("label")].forEach(l => {
+      if (l.textContent.includes("external library")) l.querySelector("input").checked = showExternal;
+    });
+    rebuild();
+  });
+  document.getElementById("toggle-lazy").addEventListener("change", (e) => {
+    showLazy = e.target.checked; rebuild();
+  });
+  document.getElementById("search").addEventListener("input", (e) => {
+    searchTerm = e.target.value.trim().toLowerCase(); rebuild();
+  });
+  document.getElementById("reset").addEventListener("click", () => {
+    view.x = 0; view.y = 0; view.k = 1; applyView();
+    DATA.nodes.forEach((n, i) => {
+      const angle = i * 2.399963229728653;
+      const rad = 30 + 12 * Math.sqrt(i);
+      n.x = W() / 2 + rad * Math.cos(angle);
+      n.y = H() / 2 + rad * Math.sin(angle);
+      n.vx = 0; n.vy = 0; n.pinned = false;
+    });
+    alpha = 1; rebuild();
+  });
+
+  applyView();
+  rebuild();
+  tick();
+})();
+</script>
+</body>
+</html>

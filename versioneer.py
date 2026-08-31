@@ -1814,9 +1814,11 @@ def scan_setup_py():
 
 
 if __name__ == "__main__":
-    cmd = sys.argv[1]
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "help"
     if cmd == "setup":
         errors = do_setup()
         errors += scan_setup_py()
         if errors:
             sys.exit(1)
+    else:
+        print("Usage: python versioneer.py setup")
