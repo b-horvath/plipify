@@ -33,10 +33,10 @@ For more details, please see the [fragalysis.ipynb](https://github.com/volkamerl
 
 Coming soon ...
 
-### Installation using conda
+### Installation using pixi
 
 #### Prerequisite
-Anaconda and Git should be pre-installed. See [Anaconda's website](https://www.anaconda.com/products/individual) and [Git's website](https://git-scm.com/downloads) for download.
+[pixi](https://pixi.sh/) and Git should be pre-installed. See [pixi's installation guide](https://pixi.sh/latest/#installation) and [Git's website](https://git-scm.com/downloads) for download.
 
 #### How to
 
@@ -52,22 +52,28 @@ git clone https://github.com/volkamerlab/plipify.git
 cd plipify
 ```
 
-3. Create the conda environment:
+3. Create the environment (pixi resolves it from `pixi.toml` / `pixi.lock`):
 
 ```console
-conda env create -f devtools/conda-envs/test_env.yaml
+pixi install -e plipify
 ```
 
 4. Activate the environment:
 
 ```console
-conda activate plipify
+pixi shell -e plipify
 ```
 
 5. Install plipify package:
 
 ```console
-pip install -e .
+pip install -e . --no-deps
+```
+
+Alternatively, run a single command inside the environment without activating it, e.g.:
+
+```console
+pixi run -e plipify jupyter lab
 ```
 
 ### Contributors
@@ -84,12 +90,31 @@ pip install -e .
 ```
 |-- LICENSE
 |-- README.md
-|-- devtools    <- environment file
+|-- pixi.toml   <- environment definition (dependencies; exact versions pinned in pixi.lock)
 |-- plipify     <- plipify code
 |-- projects
 |   |-- 01      <- One protein against many ligands
 |   |-- 02      <- One ligand against several targets
 ```
+
+## How to contribute changes
+- Clone the repository if you have write access to the main repo, fork the repository if you are a collaborator.
+- Make a new branch with `git checkout -b {your branch name}`
+- Make changes and test your code
+- Ensure that the test environment dependencies (`conda-envs`) line up with the build and deploy dependencies (`conda-recipe/meta.yaml`)
+- Push the branch to the repo (either the main or your fork) with `git push -u origin {your branch name}`
+  * Note that `origin` is the default name assigned to the remote, yours may be different
+- Make a PR on GitHub with your changes
+- We'll review the changes and get your code into the repo after lively discussion!
+
+
+## Checklist for updates
+- [ ] Make sure there is an/are issue(s) opened for your specific update
+- [ ] Create the PR, referencing the issue
+- [ ] Debug the PR as needed until tests pass
+- [ ] Tag the final, debugged version 
+   *  `git tag -a X.Y.Z [latest pushed commit] && git push --follow-tags`
+- [ ] Get the PR merged in
 
 ### Copyright
 
