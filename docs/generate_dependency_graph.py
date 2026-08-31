@@ -84,6 +84,35 @@ CATEGORY_ORDER = [
     "package", "module", "legacy", "test", "data", "notebook", "missing", "external",
 ]
 
+# Curated landing-page layout: node id -> (x, y) as a fraction of the canvas.
+# Mirrors docs/plipify_dependencies.png so every first load looks the same:
+# stale "missing" imports top-left, the notebooks that consume the package in a
+# row, the three live modules in the centre feeding data/, and the version /
+# test island below.  Nodes without an entry (e.g. external libraries) fall back
+# to a spiral placement in the JS.
+LANDING_LAYOUT = {
+    "plipify/fp_visual.py":            (0.32, 0.15),
+    "plipify/plip_fingerprints.py":    (0.29, 0.21),
+    "plipify/Plipify.ipynb":           (0.38, 0.28),
+    "projects/01/debug.ipynb":         (0.46, 0.28),
+    "projects/01/xchem.ipynb":         (0.54, 0.28),
+    "projects/02/main.ipynb":          (0.60, 0.28),
+    "projects/01/fragalysis.ipynb":    (0.68, 0.29),
+    "plipify/fingerprints.py":         (0.40, 0.40),
+    "plipify/core.py":                 (0.53, 0.42),
+    "plipify/visualization.py":        (0.62, 0.42),
+    "plipify/data":                    (0.56, 0.52),
+    "plipify/_deprecated.py":          (0.46, 0.54),
+    "plipify/tests/__init__.py":       (0.27, 0.56),
+    "plipify/tests/test_plipify.py":   (0.30, 0.63),
+    "plipify/tests/test_core.py":      (0.18, 0.62),
+    "plipify/tests/test_core_draft.py":     (0.17, 0.70),
+    "plipify/tests/test_fingerprints.py":   (0.27, 0.72),
+    "plipify/tests/test_visualization.py":  (0.20, 0.78),
+    "plipify/_version.py":             (0.42, 0.75),
+    "plipify/__init__.py":             (0.34, 0.81),
+}
+
 
 # ---------------------------------------------------------------------------
 # Python module analysis
@@ -345,6 +374,7 @@ def build_graph() -> dict:
         "generated": _dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
         "nodes": ordered,
         "links": list(uniq.values()),
+        "layout": {k: list(v) for k, v in LANDING_LAYOUT.items() if k in nodes},
     }
 
 
@@ -399,8 +429,20 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
     box-shadow: var(--shadow); padding: 10px 12px; width: 232px;
   }
-  #controls h2 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase;
-    letter-spacing: .8px; color: var(--muted); }
+  #controls-head { display: flex; align-items: center; gap: 8px; }
+  #controls h2 { margin: 0; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .8px; color: var(--muted); flex: 1 1 auto; }
+  #controls-body { margin-top: 8px; }
+  #controls-toggle {
+    flex: 0 0 auto; width: 22px; height: 22px; padding: 0; margin: 0;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border); border-radius: 6px; background: var(--bg);
+    color: var(--ink); font-size: 13px; line-height: 1; cursor: pointer;
+  }
+  #controls-toggle:hover { border-color: var(--edge-strong); }
+  #controls.collapsed { width: auto; padding: 6px; }
+  #controls.collapsed #controls-body { display: none; }
+  #controls.collapsed #controls-head h2 { display: none; }
   #controls label { display: flex; align-items: center; gap: 8px; padding: 3px 0;
     font-size: 13px; cursor: pointer; user-select: none; }
   #controls .swatch { width: 11px; height: 11px; border-radius: 3px; flex: 0 0 auto; }
@@ -410,11 +452,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 7px;
     background: var(--bg); color: var(--ink); font-size: 13px; margin-bottom: 4px;
   }
-  #controls button {
+  #controls-body button {
     width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 7px;
     background: var(--bg); color: var(--ink); font-size: 12px; cursor: pointer; margin-top: 6px;
   }
-  #controls button:hover { border-color: var(--edge-strong); }
+  #controls-body button:hover { border-color: var(--edge-strong); }
 
   .node circle { stroke: var(--panel); stroke-width: 2px; cursor: pointer; transition: opacity .15s; }
   .node text { font-size: 11px; fill: var(--ink); pointer-events: none;
@@ -468,14 +510,19 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
          Drag nodes, scroll to zoom, click a node for details. Double-click a node to unpin it.</p>
     </header>
     <div id="controls">
-      <h2>Show</h2>
-      <div id="filters"></div>
-      <hr>
-      <label><input type="checkbox" id="toggle-ext"> external libraries</label>
-      <label><input type="checkbox" id="toggle-lazy" checked> lazy (in-function) imports</label>
-      <hr>
-      <input id="search" type="search" placeholder="Filter by name&hellip;" autocomplete="off">
-      <button id="reset">Reset view &amp; layout</button>
+      <div id="controls-head">
+        <h2>Show</h2>
+        <button id="controls-toggle" type="button" aria-label="Collapse panel" title="Collapse panel">&#8722;</button>
+      </div>
+      <div id="controls-body">
+        <div id="filters"></div>
+        <hr>
+        <label><input type="checkbox" id="toggle-ext"> external libraries</label>
+        <label><input type="checkbox" id="toggle-lazy" checked> lazy (in-function) imports</label>
+        <hr>
+        <input id="search" type="search" placeholder="Filter by name&hellip;" autocomplete="off">
+        <button id="reset">Reset view &amp; layout</button>
+      </div>
     </div>
     <svg id="svg">
       <defs>
@@ -526,14 +573,41 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   const visibleCats = new Set(Object.keys(CATS).filter(c => c !== "external"));
   let showExternal = false, showLazy = true, searchTerm = "";
 
+  // ---- persistence (per-viewer, this artifact's origin only) ---------------
+  const LS = { layout: "plipifyDepGraph.v1.layout", collapsed: "plipifyDepGraph.v1.controlsCollapsed" };
+  function lsRead(key) { try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; } }
+  function lsWrite(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+  function lsRemove(key) { try { localStorage.removeItem(key); } catch (e) {} }
+
   const W = () => SVG.clientWidth, H = () => SVG.clientHeight;
-  DATA.nodes.forEach((n, i) => {
-    const angle = i * 2.399963229728653;
-    const rad = 30 + 12 * Math.sqrt(i);
-    n.x = W() / 2 + rad * Math.cos(angle);
-    n.y = H() / 2 + rad * Math.sin(angle);
-    n.vx = 0; n.vy = 0; n.pinned = false;
-  });
+
+  // Seed node positions. Priority: a layout this viewer saved earlier ->
+  // the curated landing layout shipped in the file -> a spiral fallback
+  // (used for external-library nodes, which carry no curated position).
+  function placeNodes(preferSaved) {
+    const saved = preferSaved ? lsRead(LS.layout) : null;
+    const w = W(), h = H();
+    DATA.nodes.forEach((n, i) => {
+      let f = (saved && saved[n.id]) || (DATA.layout && DATA.layout[n.id]);
+      if (!f) {
+        const angle = i * 2.399963229728653;
+        const rad = 0.14 + 0.02 * Math.sqrt(i);
+        f = [0.6 + rad * Math.cos(angle), 0.5 + rad * Math.sin(angle)];
+      }
+      n.x = f[0] * w; n.y = f[1] * h;
+      n.vx = 0; n.vy = 0; n.pinned = false;
+    });
+  }
+
+  let layoutDirty = false;
+  function saveLayout() {
+    const w = W(), h = H(), out = {};
+    for (const n of DATA.nodes) out[n.id] = [n.x / w, n.y / h];
+    lsWrite(LS.layout, out);
+    layoutDirty = false;
+  }
+
+  placeNodes(true);
 
   // ---- view transform (zoom / pan) ---------------------------------------
   const view = { x: 0, y: 0, k: 1 };
@@ -566,6 +640,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       drag.node.x = (e.clientX - rect.left - view.x) / view.k;
       drag.node.y = (e.clientY - rect.top - view.y) / view.k;
       drag.node.vx = 0; drag.node.vy = 0; drag.node.pinned = true;
+      layoutDirty = true;
       alpha = Math.max(alpha, 0.3);
     }
   });
@@ -574,7 +649,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   });
 
   // ---- force simulation --------------------------------------------------
-  let activeNodes = [], activeLinks = [], alpha = 1;
+  let activeNodes = [], activeLinks = [], alpha = 0;
   const CHARGE = -1400, LINK_DIST = 92, LINK_K = 0.04, CENTER_K = 0.015, DAMP = 0.86;
 
   function tick() {
@@ -612,6 +687,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         } else { a.vx = 0; a.vy = 0; }
       }
       positionElements();
+    } else if (layoutDirty) {
+      // simulation has come to rest after a drag -> remember the arrangement
+      saveLayout();
     }
     requestAnimationFrame(tick);
   }
@@ -630,7 +708,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     return passesFilter(nodeById.get(l.source)) && passesFilter(nodeById.get(l.target));
   }
 
-  function rebuild() {
+  function rebuild(reheat = true) {
     activeNodes = DATA.nodes.filter(passesFilter);
     const liveIds = new Set(activeNodes.map(n => n.id));
     activeLinks = DATA.links.filter(l => linkVisible(l) && liveIds.has(l.source) && liveIds.has(l.target))
@@ -674,7 +752,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       g.addEventListener("dblclick", (e) => { e.stopPropagation(); n.pinned = false; alpha = Math.max(alpha, .3); });
     });
 
-    alpha = Math.max(alpha, 0.6);
+    if (reheat) alpha = Math.max(alpha, 0.6);
     positionElements();
   }
 
@@ -843,18 +921,28 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   });
   document.getElementById("reset").addEventListener("click", () => {
     view.x = 0; view.y = 0; view.k = 1; applyView();
-    DATA.nodes.forEach((n, i) => {
-      const angle = i * 2.399963229728653;
-      const rad = 30 + 12 * Math.sqrt(i);
-      n.x = W() / 2 + rad * Math.cos(angle);
-      n.y = H() / 2 + rad * Math.sin(angle);
-      n.vx = 0; n.vy = 0; n.pinned = false;
-    });
-    alpha = 1; rebuild();
+    lsRemove(LS.layout);           // forget this viewer's arrangement
+    placeNodes(false);             // back to the curated landing layout
+    alpha = showExternal ? 0.25 : 0;
+    rebuild(false);
   });
 
+  // ---- collapsible controls panel (state persisted per viewer) -----------
+  const controlsEl = document.getElementById("controls");
+  const controlsToggle = document.getElementById("controls-toggle");
+  function setControlsCollapsed(collapsed) {
+    controlsEl.classList.toggle("collapsed", collapsed);
+    controlsToggle.textContent = collapsed ? "☰" : "−";
+    controlsToggle.title = collapsed ? "Show controls" : "Collapse panel";
+    controlsToggle.setAttribute("aria-label", controlsToggle.title);
+    lsWrite(LS.collapsed, collapsed ? 1 : 0);
+  }
+  controlsToggle.addEventListener("click", () =>
+    setControlsCollapsed(!controlsEl.classList.contains("collapsed")));
+  setControlsCollapsed(lsRead(LS.collapsed) === 1);
+
   applyView();
-  rebuild();
+  rebuild(false);
   tick();
 })();
 </script>
