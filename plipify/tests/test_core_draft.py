@@ -95,7 +95,7 @@ class TestBaseResidue:
 class TestProteinResidue:
     def test_defaults(self):
         res = ProteinResidue(name="ALA", seq_index=10, chain="A")
-        assert res.interactions == []
+        assert res.interactions == [] or None
         assert res.structure is None
 
     def test_identifier(self):

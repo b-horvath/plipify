@@ -167,7 +167,7 @@ class BaseResidue:
     A collection of covalently bonded atoms
     """
 
-    _ALLOWED_RESIDUE_NAMES = []
+    _ALLOWED_RESIDUE_NAMES = [] 
 
     def __init__(self, name):
         self.name = self._check_valid_name(name)
@@ -190,29 +190,14 @@ class ProteinResidue(BaseResidue):
     """
 
     _ALLOWED_RESIDUE_NAMES = {
-        "ALA",
-        "ARG",
-        "ASN",
-        "ASP",
-        "CYS",
-        "GLN",
-        "GLU",
-        "GLY",
-        "HIS",
-        "ILE",
-        "LEU",
-        "LYS",
-        "MET",
-        "PHE",
-        "PRO",
-        "SER",
-        "THR",
-        "TRP",
-        "TYR",
-        "VAL",
+        "ALA", "ARG","ASN","ASP","CYS",
+        "GLN","GLU","GLY","HIS","ILE",
+        "LEU","LYS","MET","PHE","PRO",
+        "SER","THR","TRP","TYR","VAL",
     }
 
     def __init__(self, name, seq_index, chain, interactions=None, structure=None):
+        super().__init__(name) # check for valid residue from BaseResidue
         self.seq_index = seq_index
         self.name = name
         self.chain = chain
@@ -235,6 +220,8 @@ class ProteinResidue(BaseResidue):
     def identifier(self):
         return "{}:{}.{}".format(self.name, self.seq_index, self.chain)
 
+    # Need to find implementation because this method not used anywhere in plipify/
+    @property
     def is_protein(self):
         return self.name.title() in IUPACData.protein_letters_3to1
 
@@ -252,29 +239,9 @@ class LigandResidue(BaseResidue):
     A small molecule in the vicinity of a binding site
     """
 
-    # TODO: Fill list in! -- done
-    _ALLOWED_RESIDUE_NAMES = {
-        "ALA",
-        "ARG",
-        "ASN",
-        "ASP",
-        "CYS",
-        "GLN",
-        "GLU",
-        "GLY",
-        "HIS",
-        "ILE",
-        "LEU",
-        "LYS",
-        "MET",
-        "PHE",
-        "PRO",
-        "SER",
-        "THR",
-        "TRP",
-        "TYR",
-        "VAL",
-    }
+    # TODO: Fill list in! 
+    _ALLOWED_RESIDUE_NAMES = [] # Is there a database for knowing what residues we can load?
+       
 
 
 class BindingSite:
@@ -390,7 +357,7 @@ class Structure:
             if ligand_name is None or key.startswith(ligand_name):
                 for InteractionType in cls.INTERACTIONS:
                     shorthand = InteractionType.shorthand
-                    if shorthand == "hbond-acc":
+                    if shorthand == "hbond-acc": #why are we reassigning this here
                         shorthand == "hbond"
                     elif shorthand == "hbond-don":
                         continue  # skip, we processed it already

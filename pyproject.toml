@@ -9,6 +9,7 @@ dependencies = [
     "matplotlib>=3.11.1",
     "mdanalysis>=2.10.0",
     "nglview>=4.0.1",
+    "opencadd",
     "pandas>=3.0.5",
     "path>=17.1.1",
     "plip>=3.0.1",
@@ -31,6 +32,9 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 # The importable package lives at ./plipify (flat layout), not ./src/plipify
 module-root = ""
+
+[tool.uv.sources]
+opencadd = { git = "https://github.com/volkamerlab/opencadd.git" }
 
 [tool.black]
 line-length = 99

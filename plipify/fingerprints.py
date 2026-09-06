@@ -17,7 +17,9 @@ import pandas as pd
 from Bio.AlignIO.FastaIO import MultipleSeqAlignment, Seq, SeqRecord
 from Bio.AlignIO import write as write_alignment, read as read_alignment
 
-from .core import ProteinResidue
+#need to follow up with this because the file talks about aggregating different files
+#but Structure is not accessed from core.py
+from .core import ProteinResidue, Structure
 
 
 class InteractionFingerprint:
@@ -63,6 +65,7 @@ class InteractionFingerprint:
         Parameters
         ----------
         structures : list of core.Structure objects
+        #TODO But from .core import Structure was not implemented above (until now)
         residue_indices :  list of dict[int, <int or None>], or None
             list of dictionaries (one per structure) that maps
             unaligned position in sequence vs aligned position (after
