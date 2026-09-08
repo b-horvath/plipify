@@ -72,11 +72,11 @@ def fingerprint_heatmap(fingerprint_df, cmap="YlGnBu"):
     fingerprint_df = fingerpint in dataframe form
 
     """
-    fig, ax = plt.subplots(figsize=(10, 7))  # plot size
+    fig, ax = plt.subplots(figsize=(10, 7))  # plot size - Generates Figure and axes instances(objects made by the class)
     sns.heatmap(fingerprint_df, annot=True, cmap=cmap, ax=ax, fmt="g")
     ax.set_xlabel("Interaction Types")
     ax.set_ylabel("Residues")
-    return fig
+    return fig, ax
 
 
 def _prepare_tabledata(fingerprint_df):

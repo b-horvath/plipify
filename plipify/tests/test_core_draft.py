@@ -108,8 +108,8 @@ class TestProteinResidue:
         assert res.one_letter_code == "A"
 
     def test_is_protein(self):
-        assert ProteinResidue("GLY", 1, "A").is_protein()
-        assert not ProteinResidue("ZZZ", 1, "A").is_protein()
+        assert ProteinResidue("GLY", 1, "A").is_protein
+        assert not ProteinResidue("ZZZ", 1, "A").is_protein
 
     def test_count_interactions(self):
         res = ProteinResidue(

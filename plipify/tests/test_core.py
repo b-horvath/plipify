@@ -22,7 +22,7 @@ from plipify.core import (
 class TestProteinResidue:
     """
     Test against ProteinResidue default values and all expected protein residues 
-    that should exist)
+    (that should exist)
 
     Questions:
     - how do we account for different chains? Missing chains?

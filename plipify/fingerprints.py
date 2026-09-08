@@ -19,7 +19,7 @@ from Bio.AlignIO import write as write_alignment, read as read_alignment
 
 #need to follow up with this because the file talks about aggregating different files
 #but Structure is not accessed from core.py
-from .core import ProteinResidue, Structure
+from .core import ProteinResidue
 
 
 class InteractionFingerprint:
@@ -65,7 +65,7 @@ class InteractionFingerprint:
         Parameters
         ----------
         structures : list of core.Structure objects
-        #TODO But from .core import Structure was not implemented above (until now)
+        #TODO But from .core import Structure was not implemented above 
         residue_indices :  list of dict[int, <int or None>], or None
             list of dictionaries (one per structure) that maps
             unaligned position in sequence vs aligned position (after
@@ -139,7 +139,7 @@ class InteractionFingerprint:
 
         Parameters
         ----------
-        fingerprints = list of fingperprints to sum up
+        fingerprints = list of fingerprints to sum up
         ensure_same_sequence = if true, check that all residues are identical
             for each position across structures.
         """
@@ -183,7 +183,7 @@ class InteractionFingerprint:
 
         Parameters
         ----------
-        structure = structure object based on pdb file
+        structure = structure object based on pdb file - is this from core.py
         indices = list of dict
             each dict contains kwargs that match Structure.get_residue_by
             so it can return a Residue object. For example:

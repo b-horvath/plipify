@@ -17,6 +17,7 @@ from collections import defaultdict, Counter
 from pathlib import Path
 
 from Bio.Data import IUPACData
+import pandas as pd
 
 ###
 # Interaction Types
@@ -47,8 +48,6 @@ class BaseInteraction:
         return f"<{self.__class__.__name__} with {self.interaction}>"
 
     def to_dataframe(self):
-        import pandas as pd
-
         return pd.DataFrame.from_dict(self.interaction, orient="index").T
 
     def _ipython_display_(self):
