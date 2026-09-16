@@ -192,7 +192,7 @@ class ProteinResidue(BaseResidue):
         "ALA", "ARG","ASN","ASP","CYS",
         "GLN","GLU","GLY","HIS","ILE",
         "LEU","LYS","MET","PHE","PRO",
-        "SER","THR","TRP","TYR","VAL",
+        "SER","THR","TRP","TYR","VAL", 
     }
 
     def __init__(self, name, seq_index, chain, interactions=None, structure=None):
@@ -343,6 +343,9 @@ class Structure:
         ligands = []
         ignored_ligands = []
         for ligand in pdbcomplex.ligands:
+            #TODO: non-ligand like things that should be ignored 
+            #TODO: create non-exhaustive list of artifacts in PDB files that should be ignored? 
+            #EXCLUDE_LIGANDS = {"EDO", "GOL", "SO4", "ACT", "FMT", "PEG", "DMS", "CL", "NA"}
             if ligand_name is not None and not ligand.longname.startswith(ligand_name):
                 ignored_ligands.append(ligand)
                 continue

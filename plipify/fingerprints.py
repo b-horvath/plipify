@@ -64,8 +64,7 @@ class InteractionFingerprint:
 
         Parameters
         ----------
-        structures : list of core.Structure objects
-        #TODO But from .core import Structure was not implemented above 
+        structures : list of core.Structure objects 
         residue_indices :  list of dict[int, <int or None>], or None
             list of dictionaries (one per structure) that maps
             unaligned position in sequence vs aligned position (after
@@ -95,7 +94,7 @@ class InteractionFingerprint:
                 f"Number of residue indices mappings ({len(residue_indices)}) "
                 f"does not match number of structures ({len(structures)})"
             )
-        # TODO: Some boolean paths are not covered here! Provide errors or implement missing path.
+        #TODO: review potential changes to the code and compare with master branch
         fingerprints = []
         for structure, indices in zip(structures, residue_indices):
             try:
@@ -110,28 +109,103 @@ class InteractionFingerprint:
                     f"due to error `{type(e).__name__}`: {e}"
                 )
 
+        #TODO: check 
+
+        # ============ BEGIN: original code, commented out (see TODO below) ============
+        # # TODO: Some boolean paths are not covered here! Provide errors or implement missing path.
+        # if cumulative:
+        #     cumul_fp = self._acumulate_fingerprints(
+        #         fingerprints, ensure_same_sequence=ensure_same_sequence
+        #     )
+        #     if labeled and as_dataframe:
+        #         plotdata = defaultdict(list)
+        #         for entry in cumul_fp:
+        #             plotdata[entry.label["type"]].append(entry)
+        #         df = pd.DataFrame.from_dict(
+        #             {k: [x.value for x in v] for (k, v) in plotdata.items()}
+        #         )
+        #         df.index = residue_indices[0].keys()
+        #         # change to eliminate redundant transpose
+        #         if remove_non_interacting_residues:
+        #             # remove all zero rows
+        #             df = df.loc[(df != 0).any(axis=1)]
+        #         if remove_empty_interaction_types:
+        #             # remove all zero columns
+        #             df = df.loc[:, (df != 0).any(axis=0)]
+        #         return df
+        #
+        # return fingerprints
+        # ============= END: original code, commented out (see TODO below) =============
+
+        # ================= BEGIN: boolean-path fix (was TODO above) =================
+        # The commented-out block above silently dropped `cumul_fp` (falling through to
+        # `return fingerprints`, the non-cumulative result) whenever `labeled` and
+        # `as_dataframe` were not both True, and silently ignored
+        # `remove_non_interacting_residues` / `remove_empty_interaction_types` outside
+        # that same one combination. Every combination of the boolean flags is now
+        # either implemented or explicitly rejected with a ValueError.
+        if as_dataframe and not labeled:
+            raise ValueError(
+                "`as_dataframe=True` requires `labeled=True`: a DataFrame can only be "
+                "built from labeled fingerprints (residue/interaction-type labels are "
+                "needed to lay out rows and columns)."
+            )
+        if (remove_non_interacting_residues or remove_empty_interaction_types) and not (
+            labeled and as_dataframe
+        ):
+            raise ValueError(
+                "`remove_non_interacting_residues` and `remove_empty_interaction_types` "
+                "only apply to labeled DataFrame output: pass `labeled=True` and "
+                "`as_dataframe=True` to use them."
+            )
+
+        # if cumulative:
+        #     cumul_fp = self._acumulate_fingerprints(
+        #         fingerprints, ensure_same_sequence=ensure_same_sequence
+        #     )
+        #     if labeled and as_dataframe:
+        #         plotdata = defaultdict(list)
+        #         for entry in cumul_fp:
+        #             plotdata[entry.label["type"]].append(entry)
+        #         df = pd.DataFrame.from_dict(
+        #             {k: [x.value for x in v] for (k, v) in plotdata.items()}
+        #         )
+        #         df.index = residue_indices[0].keys()
+        #         # change to eliminate redundant transpose
+        #         if remove_non_interacting_residues:
+        #             # remove all zero rows
+        #             df = df.loc[(df != 0).any(axis=1)]
+        #         if remove_empty_interaction_types:
+        #             # remove all zero columns
+        #             df = df.loc[:, (df != 0).any(axis=0)]
+        #         return df
+
         if cumulative:
             cumul_fp = self._acumulate_fingerprints(
                 fingerprints, ensure_same_sequence=ensure_same_sequence
             )
-            if labeled and as_dataframe:
-                plotdata = defaultdict(list)
-                for entry in cumul_fp:
-                    plotdata[entry.label["type"]].append(entry)
-                df = pd.DataFrame.from_dict(
-                    {k: [x.value for x in v] for (k, v) in plotdata.items()}
+            if as_dataframe:
+                return self._fingerprint_to_dataframe(
+                    cumul_fp,
+                    residue_indices[0].keys(),
+                    remove_non_interacting_residues,
+                    remove_empty_interaction_types,
                 )
-                df.index = residue_indices[0].keys()
-                # change to eliminate redundant transpose
-                if remove_non_interacting_residues:
-                    # remove all zero rows
-                    df = df.loc[(df != 0).any(axis=1)]
-                if remove_empty_interaction_types:
-                    # remove all zero columns
-                    df = df.loc[:, (df != 0).any(axis=0)]
-                return df
+            # labeled=True, as_dataframe=False -> list of `_LabeledValue`
+            # labeled=False, as_dataframe=False -> list of plain summed ints
+            return cumul_fp
+
+        if as_dataframe:
+            # Non-cumulative + as_dataframe: one DataFrame per input structure.
+            return [
+                self._fingerprint_to_dataframe(
+                    fp, indices.keys(), remove_non_interacting_residues, remove_empty_interaction_types
+                )
+                for fp, indices in zip(fingerprints, residue_indices)
+            ]
 
         return fingerprints
+        # ================== END: boolean-path fix (was TODO above) ===================
 
     def _acumulate_fingerprints(self, fingerprints, ensure_same_sequence=True):
         """
@@ -176,6 +250,46 @@ class InteractionFingerprint:
             else:
                 summed_fp.append(total)
         return summed_fp
+
+    # ================= BEGIN: boolean-path fix (was TODO above) =================
+    def _fingerprint_to_dataframe(
+        self,
+        fingerprint,
+        index,
+        remove_non_interacting_residues=False,
+        remove_empty_interaction_types=False,
+    ):
+        """
+        Convert a single labeled fingerprint (a list of `_LabeledValue`) into a
+        residues x interaction-types DataFrame. Extracted from the dataframe-building
+        logic that used to live only inside `calculate_fingerprint`'s cumulative
+        branch, so it can also be reused for the non-cumulative, per-structure case.
+
+        Parameters
+        ----------
+        fingerprint : list of _LabeledValue
+        index : iterable
+            row index (residue positions) to assign to the resulting DataFrame
+        remove_non_interacting_residues : bool
+            remove all rows (residues) for which there are no interactions
+        remove_empty_interaction_types : bool
+            remove all columns (interaction types) that do not report any residues
+        """
+        plotdata = defaultdict(list)
+        for entry in fingerprint:
+            plotdata[entry.label["type"]].append(entry)
+        df = pd.DataFrame.from_dict(
+            {k: [x.value for x in v] for (k, v) in plotdata.items()}
+        )
+        df.index = index
+        if remove_non_interacting_residues:
+            # remove all zero rows
+            df = df.loc[(df != 0).any(axis=1)]
+        if remove_empty_interaction_types:
+            # remove all zero columns
+            df = df.loc[:, (df != 0).any(axis=0)]
+        return df
+    # ================== END: boolean-path fix (was TODO above) ===================
 
     def _calculate_fingerprint_one_structure(self, structure, indices, labeled=False):
         """
