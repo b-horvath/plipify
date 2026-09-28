@@ -54,14 +54,22 @@ self = <[AttributeError("'Structure' object has no attribute 'ignored_ligands'")
 I created debug_to_file.py with Claude, to print out all of the objects per line to 6F8B.txt. The one notable section where the error is thrown is in here(lines 1017-1023):
 
 ```
-[residues] loaded 298 protein residues
-[residues] skipped 1 x CA: seq_index 401..401
-[residues] skipped 2 x CXH: seq_index 403..404
-[residues] skipped 414 x HOH: seq_index 501..914
-[residues] skipped 1 x ZN: seq_index 402..402
-[DICT] metal {'RESNR': 548, 'RESTYPE': 'HOH', 'RESCHAIN': 'A', 'RESNR_LIG': 401, 'RESTYPE_LIG': 'CA', 'RESCHAIN_LIG': 'A', 'METAL_IDX': 2287, 'METAL_TYPE': 'Ca', 'TARGET_IDX': 2362, 'TARGET_TYPE': 'O', 'COORDINATION': 6, 'DIST': '2.43', 'LOCATION': 'water', 'RMS': '19.84', 'GEOMETRY': 'octahedral', 'COMPLEXNUM': '1', 'METALCOO': (-4.008, -1.257, -22.031), 'TARGETCOO': (-4.877, -0.644, -24.211)}
-[from_pdbfile]      skipping residue lookup for non-protein partner: HOH 548:A LOCATION=water
+1017    [residues] loaded 298 protein residues
+1018    [residues] skipped 1 x CA: seq_index 401..401
+1019    [residues] skipped 2 x CXH: seq_index 403..404
+1020    [residues] skipped 414 x HOH: seq_index 501..914
+1021    [residues] skipped 1 x ZN: seq_index 402..402
+1022    [DICT] metal {'RESNR': 548, 'RESTYPE': 'HOH', 'RESCHAIN': 'A', 'RESNR_LIG': 401, 'RESTYPE_LIG': 'CA', 'RESCHAIN_LIG': 'A', 'METAL_IDX': 2287, 'METAL_TYPE': 'Ca', 'TARGET_IDX': 2362, 'TARGET_TYPE': 'O', 'COORDINATION': 6, 'DIST': '2.43', 'LOCATION': 'water', 'RMS': '19.84', 'GEOMETRY': 'octahedral', 'COMPLEXNUM': '1', 'METALCOO': (-4.008, -1.257, -22.031), 'TARGETCOO': (-4.877, -0.644, -24.211)}
+1023    [from_pdbfile]      skipping residue lookup for non-protein partner: HOH 548:A LOCATION=water
 ```
+
+Particularly, in line 1022:
+- The `RESTYPE` is `HOH`
+- The `RESTYPE_LIG` is `CA` 
+- The `METAL_TYPE` is `'Ca'`
+- and the `LOCATION` is `water`
+
+So this inconsistency is definitely some kind of bug. 
 
 Here, from_pdbfile is called, but there is some reference to a water, which is evident in the [BindingSiteReport in core.py](TODO-linkhere)
 
