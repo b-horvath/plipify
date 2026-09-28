@@ -57,6 +57,11 @@ class BaseInteraction:
             display(self.to_dataframe())
 
 
+"""
+Shall we derive the RGB values from plip(to make it more consistent with plip)?
+https://github.com/pharmai/plip/blob/2f4911d307490479ac023b22d6faa8f59b577ca8/DOCUMENTATION.md#L154-L161
+or where did these original values come from
+"""
 class HydrophobicInteraction(BaseInteraction):
     """
     HydrophobicInteraction, a subclass of BaseInteraction
@@ -172,7 +177,7 @@ class BaseResidue:
         self.name = self._check_valid_name(name)
 
     def _check_valid_name(self, name):
-        if not self._ALLOWED_RESIDUE_NAMES:  # no checks defined!
+        if not self._ALLOWED_RESIDUE_NAMES:  # TODO: no checks defined!
             return name
         if name in self._ALLOWED_RESIDUE_NAMES:
             return name
@@ -192,7 +197,7 @@ class ProteinResidue(BaseResidue):
         "ALA", "ARG","ASN","ASP","CYS",
         "GLN","GLU","GLY","HIS","ILE",
         "LEU","LYS","MET","PHE","PRO",
-        "SER","THR","TRP","TYR","VAL", 
+        "SER","THR","TRP","TYR","VAL"
     }
 
     def __init__(self, name, seq_index, chain, interactions=None, structure=None):
@@ -236,6 +241,8 @@ class ProteinResidue(BaseResidue):
 class LigandResidue(BaseResidue):
     """
     A small molecule in the vicinity of a binding site
+    - TODO: needs to have a library of acceptable residues: https://www.wwpdb.org/data/ccd
+    - maybe use BioPython -> protein_letters_3to1
     """
 
     # TODO: Fill list in! 
@@ -289,6 +296,7 @@ class Structure:
         PicationInteraction,
         HalogenInteraction,
         MetalInteraction,
+        # CovalentInteraction - TODO: buggy- needs further looking into
     )
 
     def __init__(self, residues=None, ligands=None, binding_sites=None):
@@ -322,6 +330,7 @@ class Structure:
         from plip.structure.preparation import PDBComplex
         from plip.exchange.report import BindingSiteReport
 
+        #Use plip to generate an object for the pdb complex
         pdbcomplex = PDBComplex()
         pdbcomplex.load_pdb(path)
 
@@ -329,22 +338,46 @@ class Structure:
         structure._path = path
 
         residues = []
+
+        #TODO: source of the problem - understand why the water at index 548 (why was the rest skipped)
         for r in pdbcomplex.resis:
+            #recall that ProteinResidue only allows for the 20 amino acid list 
             residue = ProteinResidue(
                 name=r.GetName(),
                 seq_index=r.GetNum(),
                 chain=r.GetChain(),
                 structure=structure,
             )
+            print(residue)
             residues.append(residue)
 
         structure.residues = residues
+
+        # >>>>> DEBUG START (residue loading) — remove this whole block
+        # Walk every residue OpenBabel read from the file and say whether it became a ProteinResidue
+        from plip.structure.preparation import pybel
+        _dbg_loaded = {(r.GetName(), r.GetNum(), r.GetChain()) for r in pdbcomplex.resis}
+        _dbg_skipped = defaultdict(list)
+        print(f"\n[residues] ===== residue loading for {path} =====")
+        for _dbg_i, _dbg_r in enumerate(pybel.ob.OBResidueIter(pdbcomplex.protcomplex.OBMol)):
+            _dbg_key = (_dbg_r.GetName(), _dbg_r.GetNum(), _dbg_r.GetChain())
+            _dbg_status = "LOADED as ProteinResidue" if _dbg_key in _dbg_loaded else "not a protein residue -> skipped"
+            print(f"[residues] #{_dbg_i:<4} {_dbg_key[0]:>4} {_dbg_key[1]:>5} chain={_dbg_key[2]} "
+                  f"atoms={_dbg_r.GetNumAtoms():<3} {_dbg_status}")
+            if _dbg_key not in _dbg_loaded:
+                _dbg_skipped[_dbg_key[0]].append(_dbg_key[1])
+        print(f"[residues] loaded {len(residues)} protein residues")
+        for _dbg_name, _dbg_nums in sorted(_dbg_skipped.items()):
+            print(f"[residues] skipped {len(_dbg_nums)} x {_dbg_name}: seq_index {min(_dbg_nums)}..{max(_dbg_nums)}")
+        # <<<<< DEBUG END (residue loading)
 
         ligands = []
         ignored_ligands = []
         for ligand in pdbcomplex.ligands:
             #TODO: non-ligand like things that should be ignored 
+            #This creates a non-exhaustive list, but needs to include some exceptions(ie. metal fingerprints) 
             #TODO: create non-exhaustive list of artifacts in PDB files that should be ignored? 
+            #Hamza suggested that if it's not a ligand, it will just be ignored
             #EXCLUDE_LIGANDS = {"EDO", "GOL", "SO4", "ACT", "FMT", "PEG", "DMS", "CL", "NA"}
             if ligand_name is not None and not ligand.longname.startswith(ligand_name):
                 ignored_ligands.append(ligand)
@@ -353,6 +386,7 @@ class Structure:
             ligands.append(ligand)
 
         binding_sites = []
+        #TODO: create print flow mechanism of how the binding sites are processed
         for key, site in sorted(pdbcomplex.interaction_sets.items()):
             report = BindingSiteReport(site)
             interactions = []
@@ -366,11 +400,33 @@ class Structure:
                     features = getattr(report, shorthand + "_features")
                     # list of BaseInteraction Subclasses (depending on type)
                     for interaction_data in getattr(report, shorthand + "_info"):
+                        #TODO: main index problem - embedding the pdb correctly
+                        # Generate a dictionary, with the features being the key and the interaction_data being the values
                         interaction_dict = dict(zip(features, interaction_data))
+                        print("[DICT]", shorthand, interaction_dict) 
                         seq_index, chain = (
                             interaction_dict["RESNR"],
                             interaction_dict["RESCHAIN"],
                         )
+
+                        # # SUGGESTED FIX: metal complexes can name a water (LOCATION="water") or the
+                        # # ligand itself (LOCATION="ligand") as the coordinating partner. PLIP keeps
+                        # # those contacts in the complex but leaves HOH/LIG out of its interacting
+                        # # residues (PLINteraction.interacting_res), so we do the same: keep the
+                        # # interaction on the binding site, but don't attach it to a protein residue.
+                        # if not interaction_dict.get("LOCATION", "protein").startswith("protein"):
+                        #     # >>>>> DEBUG START (non-protein partner) — remove this whole block
+                        #     print(f"[from_pdbfile]      skipping residue lookup for non-protein partner: "
+                        #           f"{interaction_dict['RESTYPE']} {seq_index}:{chain} "
+                        #           f"LOCATION={interaction_dict['LOCATION']}")
+                        #     # <<<<< DEBUG END (non-protein partner)
+                        #     interactions.append(InteractionType(interaction=interaction_dict))
+                        #     continue
+                        
+                        if not interaction_dict.get("LOCATION", "protein").startswith("protein"):
+                            interactions.append(InteractionType(interaction=interaction_dict))
+                            continue
+                        # ORIGINAL (restore below line when removing debug):
                         residue = structure.get_residue_by(seq_index=seq_index, chain=chain)
                         if shorthand == "hbond":
                             if interaction_dict["PROTISDON"]:

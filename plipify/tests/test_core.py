@@ -8,10 +8,18 @@ import pytest
 
 from plipify.core import (
     BaseInteraction,
+    HydrophobicInteraction,
     HbondInteraction,
     HbondDonorInteraction,
     HbondAcceptorInteraction,
-    HydrophobicInteraction,
+    ## Need tests for the following ##
+    WaterbridgeInteraction,
+    SaltbridgeInteraction,
+    PistackingInteraction,
+    PicationInteraction,
+    HalogenInteraction,
+    MetalInteraction,
+    ## Review metal
     CovalentInteraction,
     BaseResidue,
     ProteinResidue,
@@ -160,13 +168,55 @@ class TestStructureFromPdbfileFormats:
         assert all(isinstance(r, ProteinResidue) for r in structure.residues)
         assert all(r.structure is structure for r in structure.residues)
 
+    # Test with python3 -m pytest plipify/tests/test_core.py::TestStructureFromPdbfileFormats::test_6f8b_metal_site_water_partner -s -v
     @pytest.mark.integration
     @pytest.mark.parametrize(
+        "index, restype, seq_index, location",
+        [
+            (0, "HOH", 548, "water"),
+            (1, "ASP", 136, "protein.sidechain"),
+            (2, "GLU", 172, "protein.sidechain"),
+        ],
+    )
+    def test_6f8b_metal_site_water_partner(self, structure_6f8b, index, restype, seq_index, location):
+        """u
+        In 6F8B the Ca ion (CA:A:401) is coordinated by a water (HOH 548) as
+        well as by protein residues. PLIP only lists amino acids in
+        pdbcomplex.resis, so the water never becomes a ProteinResidue and
+        looking it up with get_residue_by used to raise a ValueError. The
+        water contact should stay on the binding site without being attached
+        to a residue, while protein contacts are still attached to theirs.
+        """
+        (ca_site,) = [bs for bs in structure_6f8b.binding_sites if bs.name == "CA:A:401"]
+        metal = ca_site.interactions["metal"][index]
+
+        assert isinstance(metal, MetalInteraction)
+        assert metal["METAL_TYPE"] == "Ca"
+        assert metal["RESTYPE"] == restype
+        assert metal["RESNR"] == seq_index
+        assert metal["RESCHAIN"] == "A"
+        assert metal["LOCATION"] == location
+
+        attached_to = [r for r in structure_6f8b.residues if metal in r.interactions]
+        if location == "water":
+            assert attached_to == []
+            assert not any(r.name == "HOH" for r in structure_6f8b.residues)
+            with pytest.raises(ValueError):
+                structure_6f8b.get_residue_by(seq_index=seq_index, chain="A")
+        else:
+            residue = structure_6f8b.get_residue_by(seq_index=seq_index, chain="A")
+            assert residue.name == restype
+            assert attached_to == [residue]
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize(
+        #lambda and p.name clean up the verbose file path so that we have an interpretable list of future pdbs that need to be cleaned. 
         "pdb_path", sorted(SAMPLE_PDBS_DIR.glob("*.pdb")), ids=lambda p: p.name
     )
     def test_pdb_format_loads_across_multiple_sample_files(self, pdb_path):
         """
         Generic over whatever .pdb files happen to live in the target directory.
+        take in all of the pdbs from plipify/data/sample_pdbs and ensure that they the Structure object is set up properly.
         """
         pytest.importorskip("plip")
         if not pdb_path.exists():
@@ -185,7 +235,7 @@ class TestStructureFromPdbfileFormats:
         with pytest.raises(SystemExit):
             Structure.from_pdbfile(str(cif))
 
-    #TODO
+    #TODO - allow for cif integration
     @pytest.mark.integration
     def test_pdb_and_cif_formats_describe_the_same_structure(self):
         """

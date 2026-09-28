@@ -36,6 +36,21 @@ def structure_1dd6():
 
 
 @pytest.fixture(scope="session")
+def structure_6f8b():
+    """
+    A plipify.core.Structure parsed from sample_pdbs/6F8B.pdb, whose Ca site
+    (CA:A:401) has a water (HOH 548) as one of its metal-coordinating partners.
+    """
+    pytest.importorskip("plip")
+    from plipify.core import Structure
+
+    pdb = SAMPLE_PDBS_DIR / "6F8B.pdb"
+    if not pdb.exists():
+        pytest.skip(f"sample PDB not available: {pdb}")
+    return Structure.from_pdbfile(str(pdb))
+
+
+@pytest.fixture(scope="session")
 def structure_mpro_x0072():
     """A Structure parsed from diamond_xchem_screen_mpro_all_pdbs/Mpro-x0072.pdb."""
     pytest.importorskip("plip")
