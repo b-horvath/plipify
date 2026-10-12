@@ -377,7 +377,7 @@ class Structure:
             #TODO: non-ligand like things that should be ignored 
             #This creates a non-exhaustive list, but needs to include some exceptions(ie. metal fingerprints) 
             #TODO: create non-exhaustive list of artifacts in PDB files that should be ignored? 
-            #Hamza suggested that if it's not a ligand, it will just be ignored
+            #Hamza suggested that if it's not a ligand, it will just be ignored, so just isolate interesting parts
             #EXCLUDE_LIGANDS = {"EDO", "GOL", "SO4", "ACT", "FMT", "PEG", "DMS", "CL", "NA"}
             if ligand_name is not None and not ligand.longname.startswith(ligand_name):
                 ignored_ligands.append(ligand)
@@ -423,9 +423,12 @@ class Structure:
                         #     interactions.append(InteractionType(interaction=interaction_dict))
                         #     continue
                         
-                        if not interaction_dict.get("LOCATION", "protein").startswith("protein"):
-                            interactions.append(InteractionType(interaction=interaction_dict))
-                            continue
+                        #TODO: understand how LOCATION "fixes" the issue
+                        #need to print the Object and see all of the metadata
+
+                        # if not interaction_dict.get("LOCATION", "protein").startswith("protein"):
+                        #     interactions.append(InteractionType(interaction=interaction_dict))
+                        #     continue
                         # ORIGINAL (restore below line when removing debug):
                         residue = structure.get_residue_by(seq_index=seq_index, chain=chain)
                         if shorthand == "hbond":
