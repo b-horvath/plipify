@@ -1,4 +1,4 @@
-MPro.zip
+projects/01/MPro.zip
 reduce/
 
 # Mac extensions
@@ -115,3 +115,4 @@ projects/*/data
 projects/*/output# pixi environments
 .pixi/*
 !.pixi/config.toml
+projects/01/Mpro.zip
