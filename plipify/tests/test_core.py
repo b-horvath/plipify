@@ -215,8 +215,8 @@ class TestStructureFromPdbfileFormats:
     )
     def test_pdb_format_loads_across_multiple_sample_files(self, pdb_path):
         """
-        Generic over whatever .pdb files happen to live in the target directory.
-        take in all of the pdbs from plipify/data/sample_pdbs and ensure that they the Structure object is set up properly.
+        Input all .pdb files in the target directory.
+        take in all of the pdbs from plipify/data/sample_pdbs and ensure that the Structure object is built properly.
         """
         pytest.importorskip("plip")
         if not pdb_path.exists():
