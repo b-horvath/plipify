@@ -74,7 +74,7 @@ class InteractionFingerprint:
             decide whether to make each fingerprint bit a labeled value
             or simple integer
         cumulative : bool
-            defines if the fp is a summed up fp or multiple structures
+            defines if the fp is a summed up fp of multiple structures
         as_dataframe : bool
             if true return fp as data_frame, else as array
         remove_non_interacting_residues : bool
